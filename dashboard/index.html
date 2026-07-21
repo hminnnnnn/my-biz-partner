@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>내 비즈니스 파트너 · 대시보드</title>
+<style>
+  :root {
+    --bg: #f5f6f8; --card: #ffffff; --ink: #1c1e21; --muted: #6b7280;
+    --line: #e5e7eb; --accent: #2563eb; --chip: #eef2ff;
+    --green: #16a34a; --blue: #2563eb; --amber: #d97706; --gray: #9ca3af; --red: #dc2626;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1115; --card: #181b21; --ink: #e8eaed; --muted: #9aa0a6;
+      --line: #2a2e35; --accent: #6ea8fe; --chip: #1e2740;
+      --green: #4ade80; --blue: #6ea8fe; --amber: #fbbf24; --gray: #6b7280; --red: #f87171;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Segoe UI", sans-serif;
+    line-height: 1.55; padding: 20px;
+  }
+  .wrap { max-width: 860px; margin: 0 auto; }
+  header { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-bottom: 18px; }
+  h1 { font-size: 20px; margin: 0; }
+  .sub { color: var(--muted); font-size: 13px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 18px; margin-bottom: 16px; }
+  .card h2 { font-size: 14px; margin: 0 0 12px; color: var(--muted); font-weight: 600; letter-spacing: .02em; }
+  .status-row { display: flex; align-items: center; gap: 10px; }
+  .dot { width: 12px; height: 12px; border-radius: 50%; flex: none; }
+  .dot.online { background: var(--green); } .dot.working { background: var(--blue); }
+  .dot.idle { background: var(--amber); } .dot.offline { background: var(--gray); }
+  .status-label { font-size: 18px; font-weight: 600; }
+  .badge { font-size: 12px; padding: 2px 9px; border-radius: 999px; background: var(--chip); color: var(--accent); }
+  .counts { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 4px; }
+  .count { background: var(--chip); border-radius: 10px; padding: 10px 14px; text-align: center; min-width: 72px; }
+  .count .n { font-size: 22px; font-weight: 700; display: block; }
+  .count .k { font-size: 12px; color: var(--muted); }
+  ul.list { list-style: none; margin: 0; padding: 0; }
+  ul.list li { padding: 8px 0; border-top: 1px solid var(--line); display: flex; gap: 10px; }
+  ul.list li:first-child { border-top: none; }
+  .time { color: var(--muted); font-variant-numeric: tabular-nums; flex: none; min-width: 44px; }
+  .phases { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 14px; }
+  .phase { font-size: 12px; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
+  .phase.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .phase.past { color: var(--ink); border-color: var(--accent); }
+  .member { display: flex; align-items: center; gap: 10px; padding: 7px 0; border-top: 1px solid var(--line); }
+  .member:first-child { border-top: none; }
+  .role { font-weight: 600; min-width: 64px; }
+  .task { color: var(--muted); flex: 1; }
+  .mstat { font-size: 12px; padding: 2px 9px; border-radius: 999px; }
+  .mstat.waiting { background: var(--chip); color: var(--muted); }
+  .mstat.working { background: var(--chip); color: var(--blue); }
+  .mstat.done { color: #fff; background: var(--green); }
+  .mstat.blocked { color: #fff; background: var(--red); }
+  .empty { color: var(--muted); font-size: 14px; padding: 6px 0; }
+  footer { color: var(--muted); font-size: 12px; text-align: center; margin-top: 6px; }
+  .goal { font-size: 16px; font-weight: 600; margin: 0 0 10px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>내 비즈니스 파트너 · 대시보드</h1>
+    <div class="sub" id="subtitle">불러오는 중…</div>
+  </header>
+  <div id="root">
+    <div class="card"><div class="empty">데이터를 불러오는 중이에요…</div></div>
+  </div>
+  <footer>5초마다 자동으로 새로고침해요 · <code>state/dashboard-data.js</code> 를 읽습니다</footer>
+</div>
+
+<!-- 상태 파일(파생본). 이 파일 하나만 읽는다 — STATE_CONTRACT ④ -->
+<script src="../state/dashboard-data.js"></script>
+<script>
+(function () {
+  var STATUS_LABEL = { online: "활동 중", working: "작업 중", idle: "대기 중", offline: "꺼짐" };
+  var MSTAT_LABEL  = { waiting: "대기", working: "진행 중", done: "완료", blocked: "막힘" };
+  var COUNT_LABEL  = { notes: "기록", briefings: "브리핑", drafts: "초안", issues: "이슈", reminders: "리마인더" };
+
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+
+  var data = (typeof window !== "undefined" && window.DASHBOARD_DATA) ? window.DASHBOARD_DATA : null;
+  var root = document.getElementById("root");
+  var subtitle = document.getElementById("subtitle");
+
+  if (!data || !data.status) {
+    subtitle.textContent = "";
+    root.innerHTML =
+      '<div class="card"><h2>상태 파일을 찾을 수 없어요</h2>' +
+      '<div class="empty">아직 <code>state/dashboard-data.js</code> 가 없어요. ' +
+      '먼저 <code>./install.sh</code> 를 실행하고, 텔레그램으로 파트너에게 말을 걸어 보세요. ' +
+      '그러면 여기에 상태가 나타납니다.</div></div>';
+    setTimeout(function () { location.reload(); }, 5000);
+    return;
+  }
+
+  var s = data.status;
+  var team = data.team || {};
+  var agent = s.agent || {};
+  var today = s.today || {};
+  var counts = today.counts || {};
+  var acts = today.activities || [];
+
+  // 부제: 사업명 + 마지막 갱신
+  var name = agent.businessName ? esc(agent.businessName) : "정체성 미입력";
+  subtitle.innerHTML = esc(name) + " · 갱신 " + esc(s.updatedAt || "-");
+
+  var html = "";
+
+  // 1) 에이전트 상태
+  var st = STATUS_LABEL[agent.status] ? agent.status : "offline";
+  html += '<div class="card"><h2>에이전트 상태</h2>';
+  html += '<div class="status-row"><span class="dot ' + st + '"></span>' +
+          '<span class="status-label">' + esc(STATUS_LABEL[st]) + '</span>';
+  html += agent.identityLoaded
+        ? '<span class="badge">정체성 로드됨</span>'
+        : '<span class="badge">정체성 미입력 — identity/IDENTITY.md 를 채워 주세요</span>';
+  html += '</div></div>';
+
+  // 2) 오늘 활동
+  html += '<div class="card"><h2>오늘 활동' + (today.date ? " · " + esc(today.date) : "") + '</h2>';
+  html += '<div class="counts">';
+  ["notes", "briefings", "drafts", "issues", "reminders"].forEach(function (k) {
+    html += '<div class="count"><span class="n">' + esc(counts[k] != null ? counts[k] : 0) +
+            '</span><span class="k">' + esc(COUNT_LABEL[k]) + '</span></div>';
+  });
+  html += '</div>';
+  if (acts.length) {
+    html += '<ul class="list" style="margin-top:14px">';
+    acts.forEach(function (a) {
+      html += '<li><span class="time">' + esc(a.time || "") + '</span><span>' +
+              esc(a.summary || "") + '</span></li>';
+    });
+    html += '</ul>';
+  } else {
+    html += '<div class="empty" style="margin-top:12px">아직 오늘 활동이 없어요. ' +
+            '텔레그램으로 메모를 던지거나 "브리핑해줘"라고 해보세요.</div>';
+  }
+  html += '</div>';
+
+  // 3) 팀 진행현황
+  html += '<div class="card"><h2>프로젝트 팀 진행현황</h2>';
+  var p = team.activeProject;
+  if (p) {
+    html += '<p class="goal">' + esc(p.goal || "") + '</p>';
+    var phases = p.phases || [];
+    var curIdx = phases.indexOf(p.phase);
+    if (phases.length) {
+      html += '<div class="phases">';
+      phases.forEach(function (ph, i) {
+        var cls = "phase" + (ph === p.phase ? " active" : (curIdx > -1 && i < curIdx ? " past" : ""));
+        html += '<span class="' + cls + '">' + esc(ph) + '</span>';
+      });
+      html += '</div>';
+    }
+    (p.members || []).forEach(function (m) {
+      var ms = MSTAT_LABEL[m.status] ? m.status : "waiting";
+      html += '<div class="member"><span class="role">' + esc(m.role || "") + '</span>' +
+              '<span class="task">' + esc(m.task || "") + '</span>' +
+              '<span class="mstat ' + ms + '">' + esc(MSTAT_LABEL[ms]) + '</span></div>';
+    });
+    var log = p.log || [];
+    if (log.length) {
+      html += '<ul class="list" style="margin-top:14px">';
+      log.slice(-5).forEach(function (l) {
+        html += '<li><span class="time">' + esc(l.time || "") + '</span><span>' +
+                esc(l.message || "") + '</span></li>';
+      });
+      html += '</ul>';
+    }
+  } else {
+    html += '<div class="empty">진행 중인 프로젝트가 없어요. ' +
+            '"신제품 런칭 기획 진행해줘" 처럼 큰 일을 맡기면 팀이 꾸려지고 여기에 나타나요.</div>';
+  }
+  html += '</div>';
+
+  root.innerHTML = html;
+  setTimeout(function () { location.reload(); }, 5000);
+})();
+</script>
+</body>
+</html>
