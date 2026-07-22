@@ -90,11 +90,20 @@ for folder in FOLDERS:
                        "folder": folder, "name": name})
 
 recent.sort(key=lambda r: r["date"], reverse=True)
-recent = recent[:5]
+
+# 모든 노트의 내용 맵 — 뷰어가 어느 항목(할 일 출처·이슈·칸반 티켓)에서든 열리게 한다.
+# (최근 5건만 임베드하던 방식은 todos 출처에서 뷰어가 죽는 실결함을 낳아 전량 임베드로 교체)
+contents = {}
 for r in recent:
     c = read_content(r["path"])
     if c is not None:
-        r["content"] = c
+        contents[r["path"]] = {"title": r["title"], "content": c}
+
+recent = recent[:5]
+for r in recent:
+    e = contents.get(r["path"])
+    if e:
+        r["content"] = e["content"]
 
 projects = []
 proot = os.path.join("notes", "projects")
@@ -110,8 +119,9 @@ for r in projects:
     c = read_content(r["path"])
     if c is not None:
         r["content"] = c
+        contents[r["path"]] = {"title": r["title"], "content": c}
 
-records = {"counts": counts, "recent": recent, "projects": projects}
+records = {"counts": counts, "recent": recent, "projects": projects, "contents": contents}
 
 # --- (4) 우리 팀 roster 파생: roles/*.md 의 스키마 헤더에서 name·관점 추출 (additive) ---
 roster = []
@@ -133,7 +143,12 @@ if os.path.isdir(rdir):
                 focus = re.sub(r"[*\"“”]", "", m.group(1)).strip()[:60]
         except OSError:
             pass
-        roster.append({"id": rid, "name": name, "focus": focus})
+        # 역할 카드 클릭 상세용 — 역할 md 전문 임베드 (뷰어가 역할 소개·할 일·작동 시점을 보여줌)
+        full = read_content(os.path.join(rdir, fname))
+        entry = {"id": rid, "name": name, "focus": focus}
+        if full is not None:
+            entry["content"] = full
+        roster.append(entry)
 
 data = {"status": status, "team": team, "records": records}
 if roster:

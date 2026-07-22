@@ -361,10 +361,14 @@
   /* 우리 팀 (roster 8역할) */
   .roster { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--space-3); }
   .role-card {
+    display: block; width: 100%; text-align: left; font: inherit; color: inherit; cursor: pointer;
     background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-md);
-    padding: var(--space-3) var(--space-4);
+    padding: var(--space-3) var(--space-4); transition: border-color .14s ease, background .14s ease;
   }
+  .role-card:hover { border-color: var(--line-strong); background: var(--surface-2); }
+  .role-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   .role-card.idle { background: var(--bg); }
+  .role-more { display: block; font-size: var(--text-xs); font-weight: var(--w-semibold); color: var(--accent-ink); margin-top: 8px; }
   .role-top { display: flex; align-items: baseline; gap: var(--space-2); }
   .role-name { font-size: var(--text-base); font-weight: var(--w-semibold); }
   .role-out { margin-left: auto; font-size: var(--text-xs); color: var(--ink-faint); font-variant-numeric: tabular-nums; }
@@ -661,6 +665,7 @@
   var openSet = {}; // 펼침 상태 유지 (탭 재렌더 대비)
   var projectView = { mode: "list", id: null }; // 프로젝트 탭: 목록 ↔ 상세
   var ticketMap = {}; // 칸반 티켓 id → 모달 상세 모델 (renderKanban 에서 구성)
+  var roleMap = {};   // 역할 카드 key → 역할 모델 (rosterHTML 에서 구성)
 
   // 진행률 파생: progress 필드가 없으면 단계 인덱스로 계산(STATE_CONTRACT: 완료 단계 ÷ 전체 × 100)
   function phaseProgress(p) {
@@ -687,6 +692,10 @@
   (records.recent || []).forEach(function (r) { if (r && r.path) contentByPath[r.path] = { title: r.title, content: r.content }; });
   (records.projects || []).forEach(function (p) { if (p && p.path) contentByPath[p.path] = { title: p.title, content: p.content }; });
   projectList.forEach(function (p) { (p.outputs || []).forEach(function (o) { if (o && o.path) contentByPath[o.path] = { title: o.title, content: o.content }; }); });
+  // records.contents = { path: {title, content} } — 모든 노트·프로젝트 파일(refresh 파생). 중복 시 contents 우선(전역 뷰어).
+  if (records.contents && typeof records.contents === "object") {
+    Object.keys(records.contents).forEach(function (k) { var c = records.contents[k]; if (c) contentByPath[k] = { title: c.title, content: c.content }; });
+  }
 
   function basename(p) { if (!p) return ""; var x = String(p).replace(/\/+$/, ""); var a = x.split("/"); return a[a.length - 1] || x; }
 
@@ -830,8 +839,12 @@
       '</button>' +
       '<div class="todo-detail" id="' + id + '"><div class="todo-detail-inner">' +
         '<div class="detail-box">' + esc(kindHint(t)) +
-          '<div class="src"><code>' + esc(t.source || "") + '</code>' +
-          '<button class="copy" type="button" data-copy="' + esc(t.source || "") + '">경로 복사</button></div>' +
+          '<div class="src"><code>' + esc(t.source || "") + '</code></div>' +
+          '<div class="acts" style="margin-top:8px">' +
+            (t.source ? '<button class="act primary" type="button" data-viewer="' + esc(t.source) + '">보기</button>' +
+              '<a class="act ghost" href="' + esc(t.source) + '" target="_blank" rel="noopener" data-goto>파일로 이동 ↗</a>' : '') +
+            '<button class="act icon" type="button" data-copy="' + esc(t.source || "") + '" aria-label="경로 복사">⧉ 복사</button>' +
+          '</div>' +
         '</div>' +
       '</div></div>' +
     '</li>';
@@ -1020,6 +1033,40 @@
       rosterHTML() + '</div>';
   }
 
+  // notes/projects/<슬러그>/... 에서 슬러그 추출
+  function projectSlug(path) { var m = String(path || "").split("notes/projects/")[1]; return m ? m.split("/")[0] : null; }
+  // 완료 프로젝트 goal ↔ records.projects 슬러그 매칭 → 산출물 목록
+  function matchedOutputs(p) {
+    var projs = (records.projects || []); if (!projs.length) return [];
+    var bySlug = {};
+    projs.forEach(function (o) { var sl = projectSlug(o.path); if (sl) (bySlug[sl] = bySlug[sl] || []).push(o); });
+    var slugs = Object.keys(bySlug); if (!slugs.length) return [];
+    var tokens = String(p.goal || "").replace(/[^가-힣a-zA-Z0-9]+/g, " ").split(" ").filter(function (t) { return t.length >= 2; });
+    // 첫 일치 반환은 "런칭" 같은 공통 토큰이 다른 프로젝트 폴더에 먼저 걸린다(교차 오매칭) —
+    // 가장 많은 토큰이 일치하는 슬러그를 고른다.
+    var best = null, bestScore = 0;
+    for (var i = 0; i < slugs.length; i++) {
+      var score = 0;
+      for (var j = 0; j < tokens.length; j++) { if (slugs[i].indexOf(tokens[j]) !== -1) score++; }
+      if (score > bestScore) { bestScore = score; best = slugs[i]; }
+    }
+    if (best) return bySlug[best];
+    var doneN = projectList.filter(function (x) { return x.done; }).length; // 완료 1개 & 폴더 1개면 그것
+    if (doneN === 1 && slugs.length === 1) return bySlug[slugs[0]];
+    return [];
+  }
+  function outListHTML(items) {
+    var h = '<ul class="out-list">';
+    items.forEach(function (o) {
+      h += '<li><span class="of" aria-hidden="true">▤</span><code>' + esc(o.path) + '</code>' +
+        '<span class="acts" style="margin-left:auto">' +
+          '<button class="act primary" type="button" data-viewer="' + esc(o.path) + '">보기</button>' +
+          '<a class="act ghost" href="' + esc(o.path) + '" target="_blank" rel="noopener" data-goto>파일로 이동 ↗</a>' +
+          '<button class="act icon" type="button" data-copy="' + esc(o.path) + '" aria-label="경로 복사">⧉</button>' +
+        '</span></li>';
+    });
+    return h + '</ul>';
+  }
   function projectDetailHTML(p) {
     var phases = p.phases || [];
     var curIdx = p.done ? phases.length : phases.indexOf(p.phase);
@@ -1034,38 +1081,46 @@
       steps += '</div>';
     }
 
-    var mem = "";
-    (p.members || []).forEach(function (m) {
-      var ms = MSTAT_LABEL[m.status] ? m.status : "waiting";
-      mem += '<div class="member"><span class="m-role">' + esc(m.role) + '</span>' +
-        '<span class="m-task">' + esc(m.task) + '</span>' +
-        '<span class="mstat ' + ms + '">' + esc(MSTAT_LABEL[ms]) + '</span></div>';
-    });
-    if (!mem) mem = '<div class="empty" style="padding:var(--space-4)"><span class="em">🧑‍🤝‍🧑</span>등록된 멤버가 없어요.</div>';
+    var hasMembers = (p.members || []).length > 0;
+    var hasLog = (p.log || []).length > 0;
 
-    var outs;
-    if ((p.outputs || []).length) {
-      outs = '<ul class="out-list">';
-      p.outputs.forEach(function (o) {
-        outs += '<li><span class="of" aria-hidden="true">▤</span><code>' + esc(o.path) + '</code>' +
-          '<span class="acts" style="margin-left:auto">' +
-            '<button class="act primary" type="button" data-viewer="' + esc(o.path) + '">보기</button>' +
-            '<a class="act ghost" href="' + esc(o.path) + '" target="_blank" rel="noopener" data-goto>파일로 이동 ↗</a>' +
-            '<button class="act icon" type="button" data-copy="' + esc(o.path) + '" aria-label="경로 복사">⧉</button>' +
-          '</span></li>';
-      });
-      outs += '</ul>';
+    // 산출물: 직접 outputs → 없으면 완료 프로젝트는 records.projects 슬러그 매칭
+    var outItems = (p.outputs || []), outSource = "direct";
+    if (!outItems.length && p.done) { outItems = matchedOutputs(p); outSource = outItems.length ? "matched" : "none"; }
+    var outsBlock;
+    if (outItems.length) {
+      outsBlock = '<div class="sub-h">산출물 · ' + outItems.length + '건' +
+        (outSource === "matched" ? ' <span style="font-weight:var(--w-regular);color:var(--ink-faint)">· 기록에서 연결</span>' : '') + '</div>' + outListHTML(outItems);
+    } else if (p.done) {
+      outsBlock = '<div class="sub-h">산출물</div>' +
+        '<div class="empty" style="padding:var(--space-4)"><span class="em">🗂️</span>이 프로젝트의 산출물은 <a class="more" href="#records" style="color:var(--accent-ink)">기록 탭</a>에서 볼 수 있어요.</div>';
     } else {
-      outs = '<div class="empty" style="padding:var(--space-4)"><span class="em">📄</span>아직 산출물이 없어요.</div>';
+      outsBlock = '<div class="sub-h">산출물 · 0건</div><div class="empty" style="padding:var(--space-4)"><span class="em">📄</span>아직 산출물이 없어요.</div>';
     }
 
-    var log;
-    if ((p.log || []).length) {
-      log = '<ul class="rows timeline">';
-      p.log.slice(-3).forEach(function (l) { log += '<li><span class="t-time">' + esc(l.time) + '</span><span class="t-text">' + esc(l.message) + '</span></li>'; });
-      log += '</ul>';
+    // 멤버·로그: 완료+둘 다 없음 → 정직한 한 줄. 그 외엔 섹션 표시.
+    var teamLogBlock;
+    if (p.done && !hasMembers && !hasLog) {
+      teamLogBlock = '<div style="font-size:var(--text-sm);color:var(--ink-faint);padding:var(--space-4) 2px 2px">완료 요약만 보존돼요 — 당시 멤버·진행 로그는 따로 남지 않았어요.</div>';
     } else {
-      log = '<div class="empty" style="padding:var(--space-4)"><span class="em">🗒️</span>기록된 로그가 없어요.</div>';
+      var mem = "";
+      (p.members || []).forEach(function (m) {
+        var ms = MSTAT_LABEL[m.status] ? m.status : "waiting";
+        mem += '<div class="member"><span class="m-role">' + esc(m.role) + '</span>' +
+          '<span class="m-task">' + esc(m.task) + '</span>' +
+          '<span class="mstat ' + ms + '">' + esc(MSTAT_LABEL[ms]) + '</span></div>';
+      });
+      if (!mem) mem = '<div class="empty" style="padding:var(--space-4)"><span class="em">🧑‍🤝‍🧑</span>등록된 멤버가 없어요.</div>';
+      var log;
+      if (hasLog) {
+        log = '<ul class="rows timeline">';
+        p.log.slice(-3).forEach(function (l) { log += '<li><span class="t-time">' + esc(l.time) + '</span><span class="t-text">' + esc(l.message) + '</span></li>'; });
+        log += '</ul>';
+      } else {
+        log = '<div class="empty" style="padding:var(--space-4)"><span class="em">🗒️</span>기록된 로그가 없어요.</div>';
+      }
+      teamLogBlock = '<div class="sub-h">팀 멤버 · ' + (p.members || []).length + '명</div>' + mem +
+        '<div class="sub-h">최근 로그</div>' + log;
     }
 
     var summaryBlock = p.summary ? '<p class="hi-sub" style="margin-top:0;margin-bottom:var(--space-4)">' + esc(p.summary) + '</p>' : '';
@@ -1077,9 +1132,7 @@
       '<button class="back-btn" type="button" data-project-back>‹ 프로젝트 목록</button>' +
       '<div class="proj-top"><h2 class="goal" id="pj-h">' + esc(p.goal) + '</h2>' + healthChip + period + '</div>' +
       summaryBlock + steps + bar +
-      '<div class="sub-h">팀 멤버 · ' + (p.members || []).length + '명</div>' + mem +
-      '<div class="sub-h">산출물 · ' + (p.outputs || []).length + '건</div>' + outs +
-      '<div class="sub-h">최근 로그</div>' + log +
+      outsBlock + teamLogBlock +
     '</section>';
     return '<div class="stack">' + detail + '</div>';
   }
@@ -1093,22 +1146,37 @@
   }
   function rosterHTML() {
     var roles = rosterRoles;
+    roleMap = {};
     if (!roles.length) {
       return '<section class="card" aria-labelledby="team-h"><h2 class="card-title" id="team-h">우리 팀</h2>' +
         '<div class="empty"><span class="em">🧑‍🤝‍🧑</span>역할군 정보가 아직 없어요. 프로젝트를 시작하면 필요한 역할이 편성돼요.</div></section>';
     }
-    var roleCards = roles.map(function (r) {
+    var roleCards = roles.map(function (r, i) {
+      var key = "ri-" + i;
+      roleMap[key] = r;
       var recentGoal = r.recentProject || roleRecentGoal(r.name); // 실데이터엔 recentProject 없음 → 이력 매칭
       var recent = recentGoal
         ? '<div class="role-recent">최근 <span class="pj">' + esc(recentGoal) + '</span></div>'
         : '<div class="role-recent none">필요할 때 편성되는 역할</div>';
       var outBadge = (r.outputsTotal != null) ? '<span class="role-out">산출 <b>' + r.outputsTotal + '</b></span>' : '';
-      return '<div class="role-card' + (recentGoal ? '' : ' idle') + '">' +
+      var hint = r.content ? '<span class="role-more" aria-hidden="true">역할 카드 ›</span>' : '';
+      return '<button class="role-card' + (recentGoal ? '' : ' idle') + '" type="button" data-role="' + key + '"' +
+        ' aria-label="' + esc(r.name) + ' 역할 상세 보기">' +
         '<div class="role-top"><span class="role-name">' + esc(r.name) + '</span>' + outBadge + '</div>' +
-        '<div class="role-focus">' + esc(r.focus || "") + '</div>' + recent + '</div>';
+        '<div class="role-focus">' + esc(r.focus || "") + '</div>' + recent + hint + '</button>';
     }).join("");
     return '<section class="card" aria-labelledby="team-h"><h2 class="card-title" id="team-h">우리 팀 <span class="count">· 상비 역할 ' + roles.length + '</span></h2>' +
       '<div class="roster">' + roleCards + '</div></section>';
+  }
+  // 역할 카드 클릭 → 모달 (역할 md 전문 렌더, 없으면 name/focus + 안내)
+  function openRole(key) {
+    var r = roleMap[key];
+    if (!r) return;
+    var header = r.focus ? '<p class="hi-sub" style="margin-top:0;margin-bottom:var(--space-4)">' + esc(r.focus) + '</p>' : '';
+    var body = r.content
+      ? '<div class="md-body">' + renderMarkdown(r.content) + '</div>'
+      : '<div class="empty" style="padding:var(--space-4)"><span class="em">🧑‍🤝‍🧑</span>이 역할의 상세 설명은 아직 준비되지 않았어요.<br>프로젝트에 편성되면 관점·판단기준이 채워집니다.</div>';
+    openModal(r.name, header + body);
   }
 
   // ── 칸반보드 탭 (읽기 전용 3열 · 티켓 클릭 = 모달 상세) ────
@@ -1295,7 +1363,9 @@
     var entry = contentByPath[path];
     var title = (entry && entry.title) ? entry.title : basename(path);
     var mdHtml = (entry && entry.content) ? renderMarkdown(entry.content)
-      : '<p class="md-p">이 노트의 미리보기는 아직 준비되지 않았어요. ‘파일로 이동’으로 원본을 열 수 있어요.</p>';
+      : '<div class="empty" style="padding:var(--space-5) var(--space-4)"><span class="em">📄</span>' +
+        '이 파일은 미리보기가 준비되지 않았어요.<br>‘파일로 이동’으로 원본을 여세요.<br>' +
+        '<span style="color:var(--ink-faint)">텔레그램에서 파트너가 활동하면 자동으로 채워집니다.</span></div>';
     var foot = '<div class="md-foot"><code>' + esc(path) + '</code>' +
       '<a class="act ghost" href="' + esc(path) + '" target="_blank" rel="noopener" data-goto>파일로 이동 ↗</a>' +
       '<button class="act icon" type="button" data-copy="' + esc(path) + '" aria-label="경로 복사">⧉ 복사</button></div>';
@@ -1356,6 +1426,9 @@
     // 칸반 티켓 → 모달 상세
     var tk = target.closest("[data-ticket]");
     if (tk) { openTicket(tk.getAttribute("data-ticket") || ""); return; }
+    // 역할 카드 → 모달 (역할 md 전문)
+    var rl = target.closest("[data-role]");
+    if (rl) { openRole(rl.getAttribute("data-role") || ""); return; }
     // 프로젝트 목록 → 상세
     var po = target.closest("[data-project-open]");
     if (po) { projectView = { mode: "detail", id: po.getAttribute("data-project-open") }; renderAll(); return; }
