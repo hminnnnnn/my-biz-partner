@@ -1295,7 +1295,7 @@
     var top = '<div class="top-refresh"><span class="upd-label">갱신 ' + relTime(s.updatedAt) + '</span>' +
       '<button class="refresh" data-refresh type="button" aria-label="새로고침"><span class="ico" aria-hidden="true">↻</span>새로고침</button></div>';
     var body = (RENDERERS[activeTab] || renderHome)();
-    var foot = '<footer>15초마다 자동으로 새로고침해요 · <code>state/dashboard-data.js</code> 를 읽습니다</footer>';
+    var foot = '<footer>새 소식이 있을 때만 자동으로 갱신해요 · <code>state/dashboard-data.js</code> 를 읽습니다</footer>';
     return '<main class="main"><div class="main-inner">' + top + body + foot + '</div></main>';
   }
 
@@ -1474,11 +1474,22 @@
     for (var i = 0; i < els.length; i++) els[i].textContent = label;
   }, 1000);
 
-  // 15초마다 자동 새로고침 — 모달 열려 있으면(노트 읽는 중) 이번 회차는 건너뛰고 다음에 재시도
+  // 데이터 갱신 감지 — 매 15초 전체 리로드는 스크롤·펼침 상태를 깨서 불편하다는 대표 피드백으로 교체.
+  // 데이터 파일만 조용히 다시 읽어(스크립트 재주입) updatedAt 이 실제로 바뀌었을 때만 화면을 새로 그린다.
+  function dataSig(d) { d = d || {}; return ((d.status || {}).updatedAt || "") + "|" + ((d.team || {}).updatedAt || ""); }
+  var bootSig = dataSig(data);
   function scheduleReload() {
     setTimeout(function () {
-      if (modalOpen()) { scheduleReload(); return; }
-      location.reload();
+      if (modalOpen()) { scheduleReload(); return; }   // 노트 읽는 중엔 건드리지 않는다
+      var sc = document.createElement("script");
+      sc.src = "../state/dashboard-data.js?v=" + Date.now();
+      sc.onload = function () {
+        sc.remove();
+        if (dataSig(window.DASHBOARD_DATA) !== bootSig) { location.reload(); return; }
+        scheduleReload();
+      };
+      sc.onerror = function () { sc.remove(); scheduleReload(); };
+      document.head.appendChild(sc);
     }, 15000);
   }
   scheduleReload();
