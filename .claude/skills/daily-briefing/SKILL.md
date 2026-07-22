@@ -21,14 +21,23 @@ description: "일정 브리핑과 미팅 사전 준비. 대표가 '내일 일정
    - 이 순서는 `docs/SETUP_CALENDAR.md` 와 동일하다. 어느 경로든 결과 형식은 같다.
 3. **미팅 준비 보강** — 각 일정의 상대(고객·업체)명으로 `notes/` 를 훑어(=recall 규약) 관련 기록을
    찾고, "챙길 것 / 지난 맥락"을 1~2줄로 붙인다. 관련 기록이 없으면 생략한다.
-4. **열린 항목 표면화 (의무 — 생략 금지)** — 브리핑할 때마다 반드시 함께 스캔한다:
-   - `notes/issues/` 에서 상태가 "열림/진행"인 이슈 → "🔴 미해결" 줄로 표면화.
-   - `notes/inbox/` 의 리마인더 파일 중 기한(due)이 지났거나 임박한 것 → "⏰ 챙길 것" 줄로 표면화.
+4. **열린 항목 표면화 (의무 — 생략 금지)** — 브리핑할 때마다 반드시 함께 짚는다. **읽기 순서:**
+   - **① 기본: `state/status.json` 의 `todos[]` 를 읽는다** (reminder·issue-tracker 가 채워 둔 열린
+     항목의 단일 소스). `state` 가 `open`/`overdue` 인 것만 대상:
+     - `kind:"issue"` → "🔴 미해결" 줄로 표면화.
+     - `kind:"reminder"` → `due` 가 지났거나(overdue) 임박한 것을 "⏰ 챙길 것" 줄로 표면화.
+     - `state:"done"` 은 제외. `due` 와 오늘을 비교해 지난 것을 먼저 보여준다.
+   - **② 이슈 폴더 대사(의무 — todos가 있어도 항상)** — `notes/issues/` 에서 상태가 "열림/진행"인
+     파일 중 `source` 경로가 todos에 **없는** 것을 찾는다. 발견하면 ① 이번 브리핑에 함께 표면화하고
+     ② **`todos[]` 에 `open` 으로 등록**해 다음부터는 단일 소스에 잡히게 한다(자가 치유).
+     todos 도입 전 데이터·수동으로 만든 이슈가 조용히 새는 것을 막는 장치다 — 실주행에서
+     "todos만 믿다가 옛 열린 이슈를 놓친" 사례가 실제 관찰되어 의무화한다.
+   - ③ `todos[]` 필드 자체가 없으면(아주 옛 데이터) `notes/inbox/` 리마인더까지 폴더 스캔으로 보완한다.
    해당 항목이 없을 때만 생략한다. (일정만 보여주고 열린 이슈를 놓치는 것이 이 기능의 대표 실패 사례다.)
 5. **간결 브리핑 출력** (아래 형식). 텔레그램 화면에 맞게 짧게.
 6. **상태 갱신** — `state/status.json` 의 `today.counts.briefings` +1, `today.activities` 에
    `{time,type:"briefing",summary}` 추가, `session.lastActiveAt`·`updatedAt` 갱신 후
-   `state/dashboard-data.js` 재생성 (`docs/STATE_CONTRACT.md` 준수).
+   **`./refresh-dashboard.sh` 실행**으로 `state/dashboard-data.js` 재생성 (`docs/STATE_CONTRACT.md` 준수).
 
 ## 읽는 위치
 - 캘린더 연동 결과 **또는** `notes/calendar-fallback.md`

@@ -18,9 +18,15 @@ description: "스마트 리마인더. 대표가 '내일 미팅 전에 견적서 
    `notes/inbox/YYYY-MM-DD-리마인더-짧은제목.md`. 파일에 **기한(due)** 을 명시한다.
 3. **브리핑 연동** — `daily-briefing` 이 실행될 때 아직 안 끝난 리마인더 중 기한이 임박한 것을
    함께 알린다. (리마인더는 이렇게 브리핑·세션 시작 때 표면화된다.)
-4. **상태 갱신** — `state/status.json` 의 `today.counts.reminders` +1, `today.activities` 에
+4. **열린 항목 등록(todos)** — `state/status.json` 의 `todos[]` 에 이 리마인더를 **`open`** 으로
+   추가한다: `{ "kind":"reminder", "title":<짧은제목>, "due":<YYYY-MM-DD 또는 null>,
+   "source":<방금 만든 노트 경로>, "state":"open" }`. (배열이 없으면 새로 만든다.)
+   이 배열을 `daily-briefing` 이 읽어 브리핑·세션 시작 때 표면화한다.
+   - **완료 처리:** 리마인더를 다 챙겼다고 하면 해당 항목의 `state` 를 **`done`** 으로 바꾼다
+     (지우지 않는다 — 완료 이력으로 남는다). 대상은 `source` 경로로 특정한다.
+5. **상태 갱신** — `state/status.json` 의 `today.counts.reminders` +1, `today.activities` 에
    `{time,type:"reminder",summary}` 추가, `updatedAt`·`lastActiveAt` 갱신 후
-   `state/dashboard-data.js` 재생성 (`docs/STATE_CONTRACT.md` 준수).
+   **`./refresh-dashboard.sh` 실행**으로 `state/dashboard-data.js` 재생성 (`docs/STATE_CONTRACT.md` 준수).
 
 ## 저장 파일 형식
 ```markdown
