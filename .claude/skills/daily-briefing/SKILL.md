@@ -21,8 +21,12 @@ description: "일정 브리핑과 미팅 사전 준비. 대표가 '내일 일정
    - 이 순서는 `docs/SETUP_CALENDAR.md` 와 동일하다. 어느 경로든 결과 형식은 같다.
 3. **미팅 준비 보강** — 각 일정의 상대(고객·업체)명으로 `notes/` 를 훑어(=recall 규약) 관련 기록을
    찾고, "챙길 것 / 지난 맥락"을 1~2줄로 붙인다. 관련 기록이 없으면 생략한다.
-4. **간결 브리핑 출력** (아래 형식). 텔레그램 화면에 맞게 짧게.
-5. **상태 갱신** — `state/status.json` 의 `today.counts.briefings` +1, `today.activities` 에
+4. **열린 항목 표면화 (의무 — 생략 금지)** — 브리핑할 때마다 반드시 함께 스캔한다:
+   - `notes/issues/` 에서 상태가 "열림/진행"인 이슈 → "🔴 미해결" 줄로 표면화.
+   - `notes/inbox/` 의 리마인더 파일 중 기한(due)이 지났거나 임박한 것 → "⏰ 챙길 것" 줄로 표면화.
+   해당 항목이 없을 때만 생략한다. (일정만 보여주고 열린 이슈를 놓치는 것이 이 기능의 대표 실패 사례다.)
+5. **간결 브리핑 출력** (아래 형식). 텔레그램 화면에 맞게 짧게.
+6. **상태 갱신** — `state/status.json` 의 `today.counts.briefings` +1, `today.activities` 에
    `{time,type:"briefing",summary}` 추가, `session.lastActiveAt`·`updatedAt` 갱신 후
    `state/dashboard-data.js` 재생성 (`docs/STATE_CONTRACT.md` 준수).
 
@@ -38,7 +42,8 @@ description: "일정 브리핑과 미팅 사전 준비. 대표가 '내일 일정
 • 15:00 B고객 코칭
 • 저녁 일정 없음
 
-준비 팁: 오전 미팅 전에 견적서 확인이 필요해 보여요.
+🔴 미해결: 반품 클레임 1건 (7/19, 열림) — 오늘 회신 방침 정하면 좋겠어요.
+⏰ 챙길 것: 10:00 미팅 전 '견적서 확인' 리마인더.
 ```
 일정이 하나도 없으면: "내일은 등록된 일정이 없어요. 캘린더를 연결했는지, 또는
 `notes/calendar-fallback.md` 에 일정을 넣었는지 확인해 주세요."
