@@ -756,7 +756,7 @@
       if (bucket(t) === "later") waiting.push(card);
       else doing.push(card); // past + today = 지금 흐름
     });
-    (proj ? proj.members : []).forEach(function (m, i) {
+    ((proj && proj.members) || []).forEach(function (m, i) {
       var card = { type: "member", idx: i, m: m };
       if (m.status === "working") doing.push(card);
       else if (m.status === "done") done.push(card); // 완료된 멤버 작업 → 완료 열
@@ -904,15 +904,20 @@
     '</div>';
 
     // 오늘 챙길 일 (없으면 긍정 빈 상태)
-    var top = activeTodos.slice().sort(function (a, b) { return rank(a) - rank(b); });
+    var HOME_TODO_CAP = 6; // 홈은 글랜스용 — 초과분은 할 일 탭으로 (스캔성 유지)
+    var sorted = activeTodos.slice().sort(function (a, b) { return rank(a) - rank(b); });
+    var top = sorted.slice(0, HOME_TODO_CAP);
+    var restN = sorted.length - top.length;
     var todoCard;
     if (top.length) {
       var todoBody = '<ul class="rows">';
       top.forEach(function (t) { todoBody += todoRow(t, todos.indexOf(t)); });
       todoBody += '</ul>';
-      var todoSummary = '<div class="list-summary">지난 <b>' + overdueN + '</b> · 오늘 <b>' + todayN + '</b> · 예정 <b>' + laterN + '</b></div>';
+      var todoSummary = '<div class="list-summary">지난 <b>' + overdueN + '</b> · 오늘 <b>' + todayN + '</b> · 예정 <b>' + laterN + '</b>' +
+        (restN > 0 ? ' · <a href="#todos">외 ' + restN + '건 →</a>' : '') + '</div>';
       todoCard = '<section class="card" aria-labelledby="home-todo-h">' +
-        '<h2 class="card-title" id="home-todo-h">오늘 챙길 일 <span class="count">· 전체 ' + top.length + '건</span>' +
+        '<h2 class="card-title" id="home-todo-h">오늘 챙길 일 <span class="count">· ' +
+          (restN > 0 ? '상위 ' + top.length + ' / ' + sorted.length + '건' : '전체 ' + sorted.length + '건') + '</span>' +
           '<a class="more" href="#todos">할 일 탭 →</a></h2>' + todoBody + todoSummary + '</section>';
     } else {
       todoCard = '<section class="card" aria-labelledby="home-todo-h">' +

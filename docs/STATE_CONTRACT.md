@@ -157,6 +157,7 @@ install.sh 도 마지막 단계에서 같은 스크립트를 호출한다.
 | `activeProject.members` | array | 팀원. 항목: `{ "role": string, "task": string, "status": string }` |
 | `activeProject.log` | array | 진행 로그. 항목: `{ "time": "HH:MM", "message": string }` |
 | `history` | array | 완료된 프로젝트 요약 목록. 항목: `{ "goal": string, "startedAt": string(ISO 8601), "completedAt": string(ISO 8601), "summary": string }` |
+| `pipeline` | array | **(선택·additive)** 대기 중 프로젝트 목록(activeProject와 동일 골격). 현재 미사용 — 다중 프로젝트 대비 예약. 없어도 됨 |
 | `updatedAt` | string | 마지막 갱신 시각 (ISO 8601) |
 
 `members[].status` 권장값: `"waiting"` \| `"working"` \| `"done"` \| `"blocked"`.
