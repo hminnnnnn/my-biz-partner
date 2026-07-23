@@ -429,8 +429,40 @@
   /* ============================================================
      기록 탭
      ============================================================ */
-  .rec-chips { display: grid; grid-template-columns: repeat(5, 1fr); gap: var(--g-space-2); }
-  .rec-chip { text-align: center; background: var(--g-surface-sunken); border-radius: var(--g-radius-control); padding: var(--g-space-4) var(--g-space-2); }
+  .rec-chips { display: grid; grid-template-columns: repeat(5, 1fr); gap: var(--g-space-2); margin-bottom: var(--g-space-6); }
+  .rec-chip {
+    text-align: center; background: var(--g-surface-sunken); border: 0; cursor: pointer;
+    font: inherit; color: inherit; border-radius: var(--g-radius-control); padding: var(--g-space-4) var(--g-space-2);
+    transition: background-color var(--g-motion-tap);
+  }
+  .rec-chip:hover { background: var(--g-layer-hover); }
+  .rec-chip.sel { background: var(--g-brand-soft); }
+  .rec-chip.sel .k { color: var(--g-brand-fg); font-weight: 600; }
+  /* 폴더 브라우저: 좌 내비 + 우 목록 */
+  .rec-split { display: grid; grid-template-columns: 1fr; gap: var(--g-space-5); align-items: start; }
+  .rec-nav { display: flex; flex-direction: column; gap: var(--g-space-1); }
+  .rec-nav-head { font: var(--g-micro); font-weight: 700; color: var(--g-fg-subtle); text-transform: uppercase; letter-spacing: .04em; margin: var(--g-space-4) 0 var(--g-space-2); padding-left: var(--g-space-3); }
+  .rec-nav-group { display: flex; flex-direction: column; gap: 2px; }
+  .rec-nav-item {
+    display: flex; align-items: center; gap: var(--g-space-3); width: 100%; text-align: left;
+    font: var(--g-caption); color: var(--g-fg-muted); background: transparent; border: 0; cursor: pointer;
+    border-radius: var(--g-radius-control); padding: var(--g-space-3) var(--g-space-3);
+    transition: background-color var(--g-motion-tap), color var(--g-motion-tap);
+  }
+  .rec-nav-item:hover { background: var(--g-layer-hover); color: var(--g-fg); }
+  .rec-nav-item.sel { background: var(--g-brand-soft); color: var(--g-brand-fg); font-weight: 600; }
+  .rec-nav-item .lbl { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .rec-nav-item .cnt { font: var(--g-micro); font-variant-numeric: var(--g-font-numeric); color: var(--g-fg-subtle); }
+  .rec-nav-item.sel .cnt { color: var(--g-brand-fg); }
+  .rec-kind { flex: none; color: var(--g-fg-subtle); font-size: var(--g-icon); }
+  /* 뷰어 확장: 표 · 웹뷰 */
+  .tbl-wrap { overflow-x: auto; border: 1px solid var(--g-border); border-radius: var(--g-radius-control); }
+  .rec-table { border-collapse: collapse; width: 100%; font: var(--g-caption); }
+  .rec-table th { text-align: left; font: var(--g-micro); font-weight: 700; color: var(--g-fg-muted);
+    background: var(--g-surface-sunken); padding: var(--g-space-3) var(--g-space-4); white-space: nowrap; }
+  .rec-table td { padding: var(--g-space-3) var(--g-space-4); border-top: 1px solid var(--g-border); font-variant-numeric: var(--g-font-numeric); }
+  .webview-bar { display: flex; align-items: center; justify-content: space-between; gap: var(--g-space-4); margin-bottom: var(--g-space-4); flex-wrap: wrap; }
+  .webview { width: 100%; height: min(64vh, 560px); border: 1px solid var(--g-border); border-radius: var(--g-radius-control); background: var(--g-surface); }
   .rec-chip .n { display: block; font: var(--g-title-2); font-variant-numeric: var(--g-font-numeric); }
   .rec-chip .k { font: var(--g-micro); color: var(--g-fg-muted); }
   .rec-item { display: flex; align-items: center; gap: var(--g-space-4); padding: var(--g-space-3) 2px; flex-wrap: wrap; }
@@ -545,6 +577,7 @@
   /* ── 반응형 ─────────────────────────────────────────────── */
   @media (min-width: 640px) {
     .kpis { grid-template-columns: repeat(4, 1fr); }
+    .rec-split { grid-template-columns: 220px minmax(0, 1fr); }
     .kpi:nth-child(n+3) { border-top: none; }
     .kpi:nth-child(even) { border-left: none; }
     .kpi + .kpi { border-left: 1px solid var(--g-border); }
@@ -673,6 +706,7 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
 
   // ── 상태(state) ────────────────────────────────────────────
   var activeTab = "home";
+  var recView = { folder: "recent" };  // 기록 탭 폴더 선택: "recent" | notes 폴더키 | "proj:<슬러그>"
   var openSet = {}; // 펼침 상태 유지 (탭 재렌더 대비)
   var projectView = { mode: "list", id: null }; // 프로젝트 탭: 목록 ↔ 상세
   var ticketMap = {}; // 칸반 티켓 id → 모달 상세 모델 (renderKanban 에서 구성)
@@ -725,7 +759,7 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
   projectList.forEach(function (p) { (p.outputs || []).forEach(function (o) { if (o && o.path) contentByPath[o.path] = { title: o.title, content: o.content }; }); });
   // records.contents = { path: {title, content} } — 모든 노트·프로젝트 파일(refresh 파생). 중복 시 contents 우선(전역 뷰어).
   if (records.contents && typeof records.contents === "object") {
-    Object.keys(records.contents).forEach(function (k) { var c = records.contents[k]; if (c) contentByPath[k] = { title: c.title, content: c.content }; });
+    Object.keys(records.contents).forEach(function (k) { var c = records.contents[k]; if (c) contentByPath[k] = { title: c.title, content: c.content, table: c.table }; });
   }
 
   function basename(p) { if (!p) return ""; var x = String(p).replace(/\/+$/, ""); var a = x.split("/"); return a[a.length - 1] || x; }
@@ -737,6 +771,9 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
       t = esc(t);
       t = t.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
       t = t.replace(/`([^`]+)`/g, "<code>$1</code>");
+      // 링크: [텍스트](http…) + 맨몸 URL — 클릭하면 웹뷰 모달로 열린다 (뷰어 위임 리스너)
+      t = t.replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+      t = t.replace(/(^|\s)(https?:\/\/[^\s<]+)/g, '$1<a href="$2" target="_blank" rel="noopener noreferrer">$2</a>');
       return t;
     }
     while (i < lines.length) {
@@ -1372,12 +1409,11 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
   // ── 기록 탭 ────────────────────────────────────────────────
   function renderRecords() {
     var c = records.counts || {};
+    var tree = records.tree || {};
+    var tnotes = tree.notes || {};
+    var tprojects = tree.projects || {};
     var order = ["inbox", "meetings", "customers", "ideas", "issues"];
-    var chips = '<div class="rec-chips">';
-    order.forEach(function (k) {
-      chips += '<div class="rec-chip"><span class="n">' + (c[k] != null ? c[k] : 0) + '</span><span class="k">' + esc(FOLDER_LABEL[k]) + '</span></div>';
-    });
-    chips += '</div>';
+    var KIND_ICON = { md: "▤", table: "▦" };
 
     function actGroup(path) {
       return '<span class="acts">' +
@@ -1386,30 +1422,62 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
         '<button class="g-btn g-btn--secondary g-btn--sm" type="button" data-copy="' + esc(path) + '" aria-label="경로 복사">⧉</button>' +
       '</span>';
     }
-    var recent = records.recent || [];
-    var recBody = '<ul class="rows">';
-    recent.forEach(function (r) {
-      recBody += '<li class="rec-item"><span class="rec-folder">' + esc(FOLDER_LABEL[r.folder] || r.folder || "") + '</span>' +
-        '<span class="rec-name">' + esc(r.title) + '</span>' +
-        '<span class="rec-date">' + esc(ymd(r.date)) + '</span>' + actGroup(r.path) + '</li>';
-    });
-    recBody += '</ul>';
+    function fileRow(f) {
+      return '<li class="rec-item"><span class="rec-kind" aria-hidden="true">' + (KIND_ICON[f.kind] || "▤") + '</span>' +
+        '<span class="rec-name">' + esc(f.title) + '</span>' +
+        '<span class="rec-date">' + esc(ymd(f.date)) + '</span>' + actGroup(f.path) + '</li>';
+    }
+    function fileList(files, emptyMsg) {
+      if (!files || !files.length) return '<div class="empty"><span class="em">🗂️</span>' + emptyMsg + '</div>';
+      return '<ul class="rows">' + files.map(fileRow).join("") + '</ul>';
+    }
 
-    var projs = records.projects || [];
-    var outBody = '<ul class="rows">';
-    projs.forEach(function (p) {
-      outBody += '<li class="rec-output"><span class="of" aria-hidden="true">◐</span>' +
-        '<span class="rn">' + esc(p.title) + '<code>' + esc(p.path) + '</code></span>' +
-        actGroup(p.path) + '</li>';
-    });
-    outBody += '</ul>';
+    // 좌: 폴더 내비 — 최근 / 노트 5분류 / 프로젝트 슬러그별
+    var cur = recView.folder;
+    function navItem(key, label, count) {
+      var sel = cur === key;
+      return '<button class="rec-nav-item' + (sel ? ' sel' : '') + '" type="button" data-rec-folder="' + esc(key) + '"' +
+        (sel ? ' aria-current="true"' : '') + '>' +
+        '<span class="lbl">' + esc(label) + '</span><span class="cnt">' + count + '</span></button>';
+    }
+    var nav = '<nav class="rec-nav" aria-label="기록 폴더">' +
+      '<div class="rec-nav-group">' + navItem("recent", "최근 기록", (records.recent || []).length) + '</div>' +
+      '<div class="rec-nav-head">노트</div><div class="rec-nav-group">' +
+      order.map(function (k) { return navItem(k, FOLDER_LABEL[k] || k, (tnotes[k] || []).length); }).join("") + '</div>';
+    var slugs = Object.keys(tprojects);
+    if (slugs.length) {
+      nav += '<div class="rec-nav-head">프로젝트 산출물</div><div class="rec-nav-group">' +
+        slugs.map(function (sl) {
+          return navItem("proj:" + sl, sl.replace(/^\d{4}-\d{2}-/, ""), (tprojects[sl] || []).length);
+        }).join("") + '</div>';
+    }
+    nav += '</nav>';
 
-    var content = '<div class="stack">' +
-      '<section class="card" aria-labelledby="rc-h"><h2 class="card-title" id="rc-h">분류별 누적</h2>' + chips + '</section>' +
-      '<section class="card" aria-labelledby="rr-h"><h2 class="card-title" id="rr-h">최근 기록 <span class="count">· ' + recent.length + '건</span></h2>' + recBody + '</section>' +
-      '<section class="card" aria-labelledby="ro-h"><h2 class="card-title" id="ro-h">프로젝트 산출물</h2>' + outBody + '</section>' +
-    '</div>';
-    return panelWrap("records", "대화가 쌓여 만들어진 노트와 산출물이에요. 분류별로 얼마나 모였는지 볼 수 있어요.", content);
+    // 우: 선택 폴더의 파일 목록
+    var body, bodyTitle;
+    if (cur === "recent") {
+      bodyTitle = '최근 기록 <span class="count">· ' + (records.recent || []).length + '건</span>';
+      body = fileList(records.recent || [], "아직 기록이 없어요. 텔레그램으로 메모를 던져보세요.");
+    } else if (cur.indexOf("proj:") === 0) {
+      var sl = cur.slice(5);
+      bodyTitle = esc(sl) + ' <span class="count">· ' + (tprojects[sl] || []).length + '건</span>';
+      body = fileList(tprojects[sl], "이 프로젝트의 산출물이 아직 없어요.");
+    } else {
+      bodyTitle = esc(FOLDER_LABEL[cur] || cur) + ' <span class="count">· ' + (tnotes[cur] || []).length + '건</span>';
+      body = fileList(tnotes[cur], "이 분류에는 아직 기록이 없어요.");
+    }
+
+    // 상단 분류 칩(클릭 = 해당 폴더로)
+    var chips = '<div class="rec-chips">' + order.map(function (k) {
+      return '<button class="rec-chip' + (cur === k ? ' sel' : '') + '" type="button" data-rec-folder="' + k + '">' +
+        '<span class="n">' + (c[k] != null ? c[k] : 0) + '</span><span class="k">' + esc(FOLDER_LABEL[k]) + '</span></button>';
+    }).join("") + '</div>';
+
+    var content = chips +
+      '<div class="rec-split">' + nav +
+      '<section class="card rec-body" aria-labelledby="rb-h"><h2 class="card-title" id="rb-h">' + bodyTitle + '</h2>' + body + '</section>' +
+      '</div>';
+    return panelWrap("records", "파트너와 쌓아온 노트·산출물을 폴더별로 보고, 여기서 바로 열 수 있어요.", content);
   }
 
   // 패널 래퍼
@@ -1498,10 +1566,29 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
     if (lastFocus && lastFocus.focus) { try { lastFocus.focus(); } catch (e) {} }
     lastFocus = null;
   }
+  // 표 데이터(csv/xlsx 임베드) → GYEOL 표 (첫 행 = 헤더)
+  function tableHTML(rows) {
+    if (!rows || !rows.length) return '<div class="empty"><span class="em">▦</span>표가 비어 있어요.</div>';
+    var head = '<tr>' + rows[0].map(function (c) { return '<th>' + esc(c) + '</th>'; }).join("") + '</tr>';
+    var body = rows.slice(1).map(function (r) {
+      return '<tr>' + r.map(function (c) { return '<td class="g-num">' + esc(c) + '</td>'; }).join("") + '</tr>';
+    }).join("");
+    return '<div class="tbl-wrap"><table class="rec-table"><thead>' + head + '</thead><tbody>' + body + '</tbody></table></div>';
+  }
+  // 노트 속 링크 → 웹뷰 모달 (일부 사이트는 임베드를 막는다 — 정직 안내 + 새 탭 폴백 상시 제공)
+  function openWebview(url) {
+    var host = url;
+    try { host = new URL(url).host; } catch (e) {}
+    openModal(host,
+      '<div class="webview-bar"><span class="hint-line" style="margin:0">일부 사이트는 임베드를 막아요 — 화면이 비면 새 탭으로 여세요.</span>' +
+      '<a class="g-btn g-btn--secondary g-btn--sm" href="' + esc(url) + '" target="_blank" rel="noopener noreferrer">새 탭에서 열기 ↗</a></div>' +
+      '<iframe class="webview" src="' + esc(url) + '" sandbox="allow-scripts allow-same-origin allow-forms allow-popups" referrerpolicy="no-referrer" title="웹 미리보기"></iframe>');
+  }
   function openViewer(path) {
     var entry = contentByPath[path];
     var title = (entry && entry.title) ? entry.title : basename(path);
-    var mdHtml = (entry && entry.content) ? renderMarkdown(entry.content)
+    var mdHtml = (entry && entry.table) ? tableHTML(entry.table)
+      : (entry && entry.content) ? renderMarkdown(entry.content)
       : '<div class="empty" style="padding:var(--g-space-7) var(--g-space-5)"><span class="em">📄</span>' +
         '이 파일은 미리보기가 준비되지 않았어요.<br>‘파일로 이동’으로 원본을 여세요.<br>' +
         '<span style="color:var(--g-fg-subtle)">텔레그램에서 파트너가 활동하면 자동으로 채워집니다.</span></div>';
@@ -1588,6 +1675,9 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
     if (po) { projectView = { mode: "detail", id: po.getAttribute("data-project-open") }; renderAll(); return; }
     var pb = target.closest("[data-project-back]");
     if (pb) { projectView = { mode: "list", id: null }; renderAll(); return; }
+    // 기록 탭 폴더 선택
+    var rf = target.closest("[data-rec-folder]");
+    if (rf) { recView = { folder: rf.getAttribute("data-rec-folder") || "recent" }; renderAll(); return; }
     // '파일로 이동'(data-goto) 은 순수 앵커 — 브라우저 기본 동작(새 탭)에 위임
     if (target.closest("[data-goto]")) return;
     // 펼침 토글 (할 일 / 아코디언 공용)
@@ -1603,7 +1693,12 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
       return;
     }
   }
-  document.addEventListener("click", function (e) { onActivate(e.target); });
+  document.addEventListener("click", function (e) {
+    // 뷰어 본문 안의 외부 링크는 웹뷰 모달로 (그 외 앵커는 기본 동작)
+    var a = e.target && e.target.closest ? e.target.closest("#modal-body .md-body a[href^='http']") : null;
+    if (a) { e.preventDefault(); openWebview(a.getAttribute("href")); return; }
+    onActivate(e.target);
+  });
   // 키보드: 좌우/상하 방향키로 탭 이동 (tablist 로빙)
   document.addEventListener("keydown", function (e) {
     if (e.key === "Escape" && modalOpen()) { e.preventDefault(); closeModal(); return; }

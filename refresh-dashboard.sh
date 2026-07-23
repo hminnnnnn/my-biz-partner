@@ -59,7 +59,7 @@ def file_date(name, path):
         return ""
 
 def title_of(name):
-    stem = name[:-3] if name.endswith(".md") else name
+    stem = re.sub(r"\.(md|csv|xlsx)$", "", name)
     return re.sub(r"^\d{4}-\d{2}-\d{2}-", "", stem)
 
 # 내장 마크다운 뷰어용 내용 임베드 — 파일당 16KB 상한(초과분은 잘라내고 표시), 실패 시 생략(additive)
@@ -75,26 +75,101 @@ def read_content(path):
     except OSError:
         return None
 
+# 표 형식(csv/xlsx) 파싱 — 표준 라이브러리만, 실패 시 None (항목은 유지, 뷰어는 폴백)
+TABLE_MAX_ROWS, TABLE_MAX_COLS = 200, 24
+
+def parse_csv(path):
+    import csv as _csv
+    try:
+        with open(path, newline="", encoding="utf-8", errors="replace") as f:
+            rows = []
+            for i, row in enumerate(_csv.reader(f)):
+                if i >= TABLE_MAX_ROWS: break
+                rows.append([c for c in row[:TABLE_MAX_COLS]])
+            return rows or None
+    except Exception:
+        return None
+
+def parse_xlsx(path):
+    # 첫 시트만 — zipfile + xml.etree 최소 파서 (openpyxl 등 외부 의존 금지)
+    import zipfile, re as _re
+    import xml.etree.ElementTree as ET
+    NS = "{http://schemas.openxmlformats.org/spreadsheetml/2006/main}"
+    try:
+        with zipfile.ZipFile(path) as z:
+            shared = []
+            if "xl/sharedStrings.xml" in z.namelist():
+                root = ET.fromstring(z.read("xl/sharedStrings.xml"))
+                for si in root.findall(NS + "si"):
+                    shared.append("".join(t.text or "" for t in si.iter(NS + "t")))
+            sheet = next((n for n in ("xl/worksheets/sheet1.xml",) if n in z.namelist()), None)
+            if not sheet:
+                names = sorted(n for n in z.namelist() if n.startswith("xl/worksheets/sheet"))
+                sheet = names[0] if names else None
+            if not sheet: return None
+            root = ET.fromstring(z.read(sheet))
+            rows = []
+            for row in root.iter(NS + "row"):
+                if len(rows) >= TABLE_MAX_ROWS: break
+                cells = {}
+                for c in row.iter(NS + "c"):
+                    ref = c.get("r") or ""
+                    m = _re.match(r"([A-Z]+)", ref)
+                    if not m: continue
+                    ci = 0
+                    for ch in m.group(1): ci = ci * 26 + (ord(ch) - 64)
+                    ci -= 1
+                    if ci >= TABLE_MAX_COLS: continue
+                    v = c.find(NS + "v")
+                    txt = v.text if v is not None and v.text is not None else ""
+                    if c.get("t") == "s":
+                        try: txt = shared[int(txt)]
+                        except Exception: pass
+                    elif c.get("t") == "inlineStr":
+                        txt = "".join(t.text or "" for t in c.iter(NS + "t"))
+                    cells[ci] = txt
+                width = max(cells.keys()) + 1 if cells else 0
+                rows.append([cells.get(i, "") for i in range(width)])
+            return rows or None
+    except Exception:
+        return None
+
+DOC_EXTS = (".md", ".csv", ".xlsx")
+
+def kind_of(name):
+    return "table" if (name.endswith(".csv") or name.endswith(".xlsx")) else "md"
+
 counts, recent = {}, []
+tree_notes = {}
 for folder in FOLDERS:
     d = os.path.join("notes", folder)
-    mds = []
+    docs = []
     if os.path.isdir(d):
         for name in sorted(os.listdir(d)):
-            if name.endswith(".md") and name != "README.md":
-                mds.append(name)
-    counts[folder] = len(mds)
-    for name in mds:
+            if name.endswith(DOC_EXTS) and name != "README.md":
+                docs.append(name)
+    counts[folder] = len(docs)
+    tree_notes[folder] = []
+    for name in docs:
         p = "notes/%s/%s" % (folder, name)
-        recent.append({"path": p, "title": title_of(name), "date": file_date(name, p),
-                       "folder": folder, "name": name})
+        item = {"path": p, "title": title_of(name), "date": file_date(name, p),
+                "folder": folder, "name": name, "kind": kind_of(name)}
+        recent.append(item)
+        tree_notes[folder].append({"path": p, "title": item["title"], "date": item["date"], "kind": item["kind"]})
 
 recent.sort(key=lambda r: r["date"], reverse=True)
+for fl in tree_notes.values():
+    fl.sort(key=lambda r: r["date"], reverse=True)
 
 # 모든 노트의 내용 맵 — 뷰어가 어느 항목(할 일 출처·이슈·칸반 티켓)에서든 열리게 한다.
 # (최근 5건만 임베드하던 방식은 todos 출처에서 뷰어가 죽는 실결함을 낳아 전량 임베드로 교체)
 contents = {}
 for r in recent:
+    if r.get("kind") == "table":
+        tbl = parse_csv(r["path"]) if r["path"].endswith(".csv") else parse_xlsx(r["path"])
+        if tbl is not None:
+            contents[r["path"]] = {"title": r["title"], "table": tbl}
+        continue
     c = read_content(r["path"])
     if c is not None:
         contents[r["path"]] = {"title": r["title"], "content": c}
@@ -102,26 +177,40 @@ for r in recent:
 recent = recent[:5]
 for r in recent:
     e = contents.get(r["path"])
-    if e:
+    if e and e.get("content") is not None:
         r["content"] = e["content"]
 
 projects = []
+tree_projects = {}
 proot = os.path.join("notes", "projects")
 if os.path.isdir(proot):
     for dirpath, _dirnames, filenames in os.walk(proot):
         for name in sorted(filenames):
-            if name.endswith(".md") and name != "README.md":
+            if name.endswith(DOC_EXTS) and name != "README.md":
                 full = os.path.join(dirpath, name)
-                projects.append({"path": full, "title": title_of(name),
-                                 "date": file_date(name, full), "name": name})
+                rel = os.path.relpath(dirpath, proot)
+                slug = rel.split(os.sep)[0] if rel != "." else ""
+                item = {"path": full, "title": title_of(name),
+                        "date": file_date(name, full), "name": name, "kind": kind_of(name)}
+                projects.append(item)
+                tree_projects.setdefault(slug, []).append(
+                    {"path": full, "title": item["title"], "date": item["date"], "kind": item["kind"]})
 projects.sort(key=lambda r: r["date"], reverse=True)
 for r in projects:
+    if r.get("kind") == "table":
+        tbl = parse_csv(r["path"]) if r["path"].endswith(".csv") else parse_xlsx(r["path"])
+        if tbl is not None:
+            contents[r["path"]] = {"title": r["title"], "table": tbl}
+        continue
     c = read_content(r["path"])
     if c is not None:
         r["content"] = c
         contents[r["path"]] = {"title": r["title"], "content": c}
 
-records = {"counts": counts, "recent": recent, "projects": projects, "contents": contents}
+# 폴더 트리 (additive) — 기록 탭 폴더 브라우저용: notes 5분류 + projects/<슬러그>별 전 파일
+tree = {"notes": tree_notes, "projects": tree_projects}
+
+records = {"counts": counts, "recent": recent, "projects": projects, "contents": contents, "tree": tree}
 
 # --- (4) 우리 팀 roster 파생: roles/*.md 의 스키마 헤더에서 name·관점 추출 (additive) ---
 roster = []

@@ -35,6 +35,9 @@ state/
   - `records.recent[]`·`records.projects[]` 항목에는 **`content`**(파일 내용, 파일당 16KB 상한 —
     초과분은 잘라내고 안내 문구)가 additive로 포함된다. 대시보드 내장 마크다운 뷰어가 이 값을
     렌더한다("파일로 이동"은 file:// 링크로 원본 열람).
+  - 스캔 대상 확장자는 `.md` + 표 형식 `.csv`·`.xlsx`(첫 시트, 200행×24열 상한 — python 표준
+    라이브러리 파싱, 실패 시 항목 유지·내용 생략). 표 파일의 contents 항목은 `content` 대신
+    **`table`**(2차원 배열)을 갖고, 대시보드 뷰어가 표로 렌더한다.
   - **`records.contents`** — `{경로: {title, content}}` 맵으로 **스캔된 모든 노트·산출물**의 내용을
     담는다(뷰어가 할 일 출처·이슈·칸반 티켓 어디에서든 열리게 하는 단일 조회처). 최근 5건만
     임베드하던 초기 방식이 "할 일에서 뷰어가 안 열리는" 실결함을 낳아 전량 임베드로 확장됨.
@@ -243,8 +246,9 @@ window.DASHBOARD_DATA = {
 | 키 | 타입 | 설명 |
 |---|---|---|
 | `counts` | object | 5분류별 파일 수 `{ "inbox", "meetings", "customers", "ideas", "issues" }` |
-| `recent` | array | 최근 파일 최대 5개. 항목: `{ "path", "title", "date", "folder", "name" }` |
-| `projects` | array | `notes/projects/` 하위 산출물. 항목: `{ "path", "title", "date", "name" }` |
+| `recent` | array | 최근 파일 최대 5개. 항목: `{ "path", "title", "date", "folder", "name", "kind" }` — `kind`: `"md"` \| `"table"`(csv·xlsx) |
+| `projects` | array | `notes/projects/` 하위 산출물. 항목: `{ "path", "title", "date", "name", "kind" }` |
+| `tree` | object | **(신설·additive)** 기록 탭 폴더 브라우저용 전 파일 목록: `{ "notes": {분류: [{path,title,date,kind}]}, "projects": {슬러그: [...]} }` |
 
 ```js
 "records": {
