@@ -157,21 +157,42 @@
   .hi .biz-in { color: var(--g-brand-fg); }
   .hi-sub { font: var(--g-body); color: var(--g-fg-muted); margin: var(--g-space-2) 0 0; max-width: 62ch; }
 
-  /* KPI 스트립 4칩 */
-  .kpis { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--g-space-4); margin-bottom: var(--g-space-8); }
+  /* 지금 결정할 것 — 홈의 단일 강조 (primary 는 이 카드에만) */
+  .decide {
+    display: flex; align-items: center; gap: var(--g-space-5); flex-wrap: wrap;
+    background: var(--g-brand-soft); border: 1px solid var(--g-border);
+    border-radius: var(--g-radius-card); padding: var(--g-space-5) var(--g-space-6);
+    margin-bottom: var(--g-space-7);
+  }
+  .decide.od { background: var(--g-critical-soft); }
+  .decide.warn { background: var(--g-warning-soft); }
+  .decide-body { flex: 1; min-width: 240px; }
+  .decide-k { font: var(--g-micro); font-weight: 700; color: var(--g-brand-fg); text-transform: uppercase; letter-spacing: .04em; }
+  .decide.od .decide-k { color: var(--g-critical); }
+  .decide.warn .decide-k { color: var(--g-warning); }
+  .decide-t { font: var(--g-title-2); letter-spacing: var(--g-track-title); margin: var(--g-space-1) 0 0; }
+  .decide-why { font: var(--g-caption); color: var(--g-fg-muted); margin: var(--g-space-1) 0 0; }
+  .decide-acts { display: flex; gap: var(--g-space-3); align-items: center; }
+
+  /* KPI 스트립 — 카드 4장이 아니라 한 밴드 4칸 (구분선 분할, 시각 무게 강등) */
+  .kpis {
+    display: grid; grid-template-columns: repeat(2, 1fr); gap: 0;
+    background: var(--g-surface); border: var(--g-elev-border); border-radius: var(--g-radius-card);
+    box-shadow: var(--g-elev-1); overflow: hidden; margin-bottom: var(--g-space-8);
+  }
   .kpi {
     display: block; text-align: left; text-decoration: none; color: inherit;
-    background: var(--g-surface); border: var(--g-elev-border); border-radius: var(--g-radius-card);
-    padding: var(--g-space-5) var(--g-space-5) var(--g-space-4);
-    box-shadow: var(--g-elev-1);
-    transition: border-color var(--g-motion-state), box-shadow var(--g-motion-state), transform var(--g-motion-tap);
+    padding: var(--g-space-4) var(--g-space-5);
+    transition: background-color var(--g-motion-tap);
   }
-  a.kpi:hover { border-color: var(--g-border-strong); box-shadow: var(--g-elev-2); }
-  a.kpi:active { transform: scale(.99); }
+  .kpi:nth-child(even) { border-left: 1px solid var(--g-border); }
+  .kpi:nth-child(n+3) { border-top: 1px solid var(--g-border); }
+  a.kpi:hover { background: var(--g-layer-hover); }
+  a.kpi:active { background: var(--g-layer-press); }
   .kpi-k { display: flex; align-items: center; gap: var(--g-space-2); font: var(--g-micro); font-weight: 600; color: var(--g-fg-muted); letter-spacing: .02em; text-transform: uppercase; }
   .kpi-k .pin { width: 6px; height: 6px; border-radius: var(--g-radius-full); }
   .kpi-k .pin.warn { background: var(--g-warning); }
-  .kpi-v { display: block; font: var(--g-display); letter-spacing: var(--g-track-display); line-height: 1.1; margin-top: var(--g-space-3); font-variant-numeric: var(--g-font-numeric); }
+  .kpi-v { display: block; font: var(--g-title-1); letter-spacing: var(--g-track-title); line-height: 1.15; margin-top: var(--g-space-2); font-variant-numeric: var(--g-font-numeric); }
   .kpi-v .u { font: var(--g-body-str); color: var(--g-fg-muted); margin-left: 2px; }
   .kpi-sub { display: block; font: var(--g-micro); color: var(--g-fg-subtle); margin-top: var(--g-space-2); }
   .kpi-sub .od { color: var(--g-critical); font-weight: 600; }
@@ -190,6 +211,9 @@
     transition: background-color var(--g-motion-tap);
   }
   .todo-row:hover { background: var(--g-layer-hover); }
+  .todo-row:active { background: var(--g-layer-press); }
+  .todo-row .chev { transition: transform var(--g-motion-state); }
+  .todo-row:hover .chev { transform: translateX(2px); }
   .todo-title { flex: 1; font: var(--g-body); min-width: 0; }
   .todo-title .ov {
     display: inline-block; width: 6px; height: 6px; border-radius: var(--g-radius-full);
@@ -226,7 +250,7 @@
   }
 
   /* 우측 레일 미니카드 */
-  .mini-goal { font: var(--g-body-str); margin: 0 0 var(--g-space-4); }
+  .mini-goal { font: var(--g-title-3); letter-spacing: var(--g-track-title); margin: 0 0 var(--g-space-4); }
   .mini-meta { display: flex; align-items: center; gap: var(--g-space-2); flex-wrap: wrap; margin-bottom: var(--g-space-4); }
 
   /* 타임라인 */
@@ -249,7 +273,7 @@
 
   /* 진행 바 — GYEOL .g-progress 레시피 계승 */
   .progress { display: flex; align-items: center; gap: var(--g-space-4); }
-  .progress-track { flex: 1; height: 6px; background: var(--g-surface-sunken); border-radius: var(--g-radius-full); overflow: hidden; }
+  .progress-track { flex: 1; height: 8px; background: var(--g-surface-sunken); border-radius: var(--g-radius-full); overflow: hidden; }
   .progress-fill { height: 100%; background: var(--g-brand); border-radius: var(--g-radius-full); transition: width var(--g-motion-sheet); }
   .progress-pct { font: var(--g-caption); font-weight: 600; color: var(--g-brand-fg); font-variant-numeric: var(--g-font-numeric); flex: none; }
 
@@ -391,7 +415,12 @@
     display: flex; align-items: center; justify-content: center; padding: var(--g-space-5);
     background: var(--g-scrim);
   }
-  @media (prefers-reduced-motion: no-preference) { .modal-backdrop { animation: mfade var(--g-dur-2) var(--g-ease-out); } @keyframes mfade { from { opacity: 0 } } }
+  @media (prefers-reduced-motion: no-preference) {
+    .modal-backdrop { animation: mfade var(--g-dur-2) var(--g-ease-out); }
+    @keyframes mfade { from { opacity: 0 } }
+    .modal { animation: mpop var(--g-motion-reveal); }
+    @keyframes mpop { from { opacity: 0; transform: translateY(6px) scale(.985) } }
+  }
   .modal { background: var(--g-surface-raised); border: var(--g-elev-border); border-radius: var(--g-radius-card);
     width: 100%; max-width: 560px; max-height: 84vh; display: flex; flex-direction: column;
     box-shadow: var(--g-elev-3); }
@@ -476,6 +505,9 @@
   /* ── 반응형 ─────────────────────────────────────────────── */
   @media (min-width: 640px) {
     .kpis { grid-template-columns: repeat(4, 1fr); }
+    .kpi:nth-child(n+3) { border-top: none; }
+    .kpi:nth-child(even) { border-left: none; }
+    .kpi + .kpi { border-left: 1px solid var(--g-border); }
     .roster { grid-template-columns: repeat(3, 1fr); }
   }
   @media (min-width: 860px) {
@@ -923,8 +955,36 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
     var actMini = '<section class="card" aria-labelledby="home-act-h">' +
       '<h2 class="card-title" id="home-act-h">오늘 활동 <span class="count">· 최근</span><a class="more" href="#records">기록 보기 →</a></h2>' + actBody + '</section>';
 
+    // 지금 결정할 것 — 홈의 단일 강조 1건 (지난 일 > 오늘 마감 > 주의 프로젝트, 없으면 표시 안 함)
+    var decide = "";
+    if (!identityMissing) {
+      var dSorted = activeTodos.slice().sort(function (a, b) { return rank(a) - rank(b); });
+      var pick = null, pkind = "";
+      for (var di = 0; di < dSorted.length; di++) {
+        var bb = bucket(dSorted[di]);
+        if (bb === "past") { pick = dSorted[di]; pkind = "od"; break; }
+        if (!pick && bb === "today") { pick = dSorted[di]; pkind = "today"; }
+      }
+      if (pick) {
+        decide = '<section class="decide' + (pkind === "od" ? ' od' : '') + '" aria-labelledby="decide-h">' +
+          '<div class="decide-body"><span class="decide-k" id="decide-h">' + (pkind === "od" ? "지난 일부터" : "오늘 마감") + '</span>' +
+          '<p class="decide-t">' + esc(pick.title) + '</p>' +
+          '<p class="decide-why">' + (pkind === "od" ? "기한이 지난 일이 오늘을 무겁게 해요 — 이것부터 정리하면 좋아요." : "오늘 안에 처리하면 좋은 일이에요.") + '</p></div>' +
+          '<div class="decide-acts">' +
+            (pick.source ? '<button class="g-btn g-btn--primary" type="button" data-viewer="' + esc(pick.source) + '">지금 보기</button>' : '') +
+            '<a class="g-btn g-btn--ghost" href="#todos">할 일 탭 →</a>' +
+          '</div></section>';
+      } else if (isWarn) {
+        decide = '<section class="decide warn" aria-labelledby="decide-h">' +
+          '<div class="decide-body"><span class="decide-k" id="decide-h">프로젝트 점검</span>' +
+          '<p class="decide-t">' + esc(proj.goal) + '</p>' +
+          (proj.healthReason ? '<p class="decide-why">' + esc(proj.healthReason) + '</p>' : '') + '</div>' +
+          '<div class="decide-acts"><a class="g-btn g-btn--primary" href="#project">자세히 보기</a></div></section>';
+      }
+    }
+
     var split = '<div class="split"><div>' + todoCard + '</div><div class="stack">' + projMini + actMini + '</div></div>';
-    return panelWrap("home", "", hero + kpis + split);
+    return panelWrap("home", "", hero + decide + kpis + split);
   }
 
   // ── 할 일 탭 ───────────────────────────────────────────────
