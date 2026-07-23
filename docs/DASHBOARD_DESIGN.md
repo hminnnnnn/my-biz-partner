@@ -47,7 +47,8 @@
 - 데이터 훅: `.todo-row` `.todo(.open)` `[data-exp]` `[data-viewer]` `[data-goto]` `[data-copy]`
   `[data-project-open]` `[data-project-back]` `[data-role]` `[data-ticket]` `[data-modal-backdrop]`
   `#modal #modal-title #modal-body` `.role-card` `.proj-card` `.decide` `.staff-top` `.hire-note` `.team-summary`
-  `[data-rec-folder]` `.rec-nav-item` `.rec-body` `.rec-table`(표 뷰어) `.webview`(링크 웹뷰 — iframe sandbox 필수).
+  `[data-rec-folder]` `[data-rec-file]` `.rec-nav-item` `.rec-file-row` `.rec-read`(인라인 리딩 페인 —
+  기록 탭 본문은 모달이 아니라 이 페인에 렌더한다: 대표 지시) `.rec-table`(표 뷰어) `.webview`(링크 웹뷰 — iframe sandbox 필수).
 - 동작: 변경 감지 갱신(`dataSig`/프로브 — 15초마다 데이터만 재확인, 바뀐 경우에만 갱신. 무조건
   리로드로 되돌리지 말 것: 대표가 불편 피드백으로 걷어낸 방식), 모달 로직(자체 구현 유지),
   **`.modal-backdrop[hidden]{display:none!important}`** (display:flex 가 [hidden]을 이겨 투명
