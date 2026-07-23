@@ -1,0 +1,341 @@
+/* =============================================================
+   GYEOL Design System · Tokens  v1.0.0
+   ⚠ 자동 생성된 파일입니다. 직접 수정하지 마세요.
+   원본: gyeol.tokens.json  ·  생성: node build-tokens.mjs
+   ============================================================= */
+
+/* ---------- Layer 1 · Primitive ---------- */
+:root {
+  /* color */
+  --g-gray-0: #FFFFFF;
+  --g-gray-25: #FBFCFD;
+  --g-gray-50: #F5F7F9;
+  --g-gray-100: #EDF0F4;
+  --g-gray-200: #E1E6EC;
+  --g-gray-300: #CDD4DD;
+  --g-gray-400: #A7B1BE;
+  --g-gray-500: #7C8794;
+  --g-gray-600: #5A6472;
+  --g-gray-700: #3D4653;
+  --g-gray-800: #272E39;
+  --g-gray-850: #1D242E;
+  --g-gray-900: #151A21;
+  --g-gray-950: #0B0F14;
+  --g-blue-50: #EDF4FF;
+  --g-blue-100: #D9E7FF;
+  --g-blue-200: #B4CEFF;
+  --g-blue-300: #85AEFF;
+  --g-blue-400: #558CFB;
+  --g-blue-500: #2B6EF5;
+  --g-blue-600: #1B55D4;
+  --g-blue-700: #1543A8;
+  --g-green-100: #DDF5E7;
+  --g-green-400: #35C47D;
+  --g-green-500: #0E9F55;
+  --g-red-100: #FDE6E4;
+  --g-red-400: #F3675C;
+  --g-red-500: #DC3F35;
+  --g-amber-100: #FEF0D8;
+  --g-amber-400: #F2A93B;
+  --g-amber-500: #B87503;
+
+  /* radius */
+  --g-radius-1: 4px;
+  --g-radius-2: 8px;
+  --g-radius-3: 12px;
+  --g-radius-4: 16px;
+  --g-radius-5: 20px;
+  --g-radius-6: 28px;
+  --g-radius-full: 999px;
+
+  /* space */
+  --g-space-0: 0;
+  --g-space-1: 2px;
+  --g-space-2: 4px;
+  --g-space-3: 8px;
+  --g-space-4: 12px;
+  --g-space-5: 16px;
+  --g-space-6: 20px;
+  --g-space-7: 24px;
+  --g-space-8: 32px;
+  --g-space-9: 40px;
+  --g-space-10: 48px;
+  --g-space-11: 64px;
+
+  /* font */
+  --g-font-sans: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+  --g-font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+
+  /* duration */
+  --g-dur-0: 0ms;
+  --g-dur-1: 120ms;
+  --g-dur-2: 200ms;
+  --g-dur-3: 320ms;
+  --g-dur-4: 480ms;
+
+  /* easing */
+  --g-ease-standard: cubic-bezier(.2, 0, 0, 1);
+  --g-ease-out: cubic-bezier(.22, 1, .36, 1);
+  --g-ease-in: cubic-bezier(.4, 0, 1, 1);
+  --g-ease-spring: linear(0, .009 1.1%, .033 2.6%, .124 5.2%, .411 10.6%, .669 14.9%, .797 17.5%, .905 20.4%, .988 23.4%, 1.047 26.5%, 1.082 29.7%, 1.096 33.1%, 1.09 36.6%, 1.071 41%, 1.027 49%, 1.0 55.3%, .989 61.9%, .996 71.1%, 1.002 84.7%, 1);
+
+  /* motion */
+  --g-motion-tap: var(--g-dur-1) var(--g-ease-standard);
+  --g-motion-state: var(--g-dur-2) var(--g-ease-standard);
+  --g-motion-reveal: var(--g-dur-3) var(--g-ease-out);
+  --g-motion-sheet: var(--g-dur-4) var(--g-ease-spring);
+
+  /* z */
+  --g-z-sticky: 100;
+  --g-z-overlay: 200;
+  --g-z-sheet: 210;
+  --g-z-popover: 250;
+  --g-z-toast: 300;
+  --g-z-tooltip: 400;
+
+  --g-font-numeric: tabular-nums lining-nums;
+}
+
+/* ---------- Layer 2 · Semantic — Light ---------- */
+:root,
+[data-theme="light"] {
+  color-scheme: light;
+
+  --g-brand-source: var(--g-blue-500);
+  --g-brand: var(--g-brand-source);
+  --g-bg: var(--g-gray-50);
+  --g-surface: var(--g-gray-0);
+  --g-surface-sunken: var(--g-gray-100);
+  --g-surface-raised: var(--g-gray-0);
+  --g-surface-inverse: var(--g-gray-900);
+  --g-fg: var(--g-gray-900);
+  --g-fg-muted: var(--g-gray-600);
+  --g-fg-subtle: var(--g-gray-500);
+  --g-fg-disabled: var(--g-gray-400);
+  --g-fg-inverse: var(--g-gray-0);
+  --g-fg-on-brand: #FFFFFF;
+  --g-fg-on-brand: contrast-color(var(--g-brand));  /* 미지원 브라우저는 흰색. gyeol.js 의 setBrand() 가 정확한 값으로 덮어씁니다. */
+  --g-border: var(--g-gray-200);
+  --g-border-strong: var(--g-gray-300);
+  --g-brand-hover: var(--g-blue-600);
+  --g-brand-hover: color-mix(in oklab, var(--g-brand) 88%, #000);
+  --g-brand-press: var(--g-blue-700);
+  --g-brand-press: color-mix(in oklab, var(--g-brand) 78%, #000);
+  --g-brand-soft: var(--g-blue-50);
+  --g-brand-soft: color-mix(in oklab, var(--g-brand) 10%, var(--g-surface));
+  --g-brand-fg: var(--g-blue-700);
+  --g-brand-fg: color-mix(in oklab, var(--g-brand) 88%, #000);
+  --g-positive: var(--g-green-500);
+  --g-positive-soft: var(--g-green-100);
+  --g-critical: var(--g-red-500);
+  --g-critical-soft: var(--g-red-100);
+  --g-warning: var(--g-amber-500);
+  --g-warning-soft: var(--g-amber-100);
+  --g-layer-hover: rgba(16,24,40,.05);
+  --g-layer-hover: color-mix(in oklab, var(--g-fg) 5%, transparent);
+  --g-layer-press: rgba(16,24,40,.09);
+  --g-layer-press: color-mix(in oklab, var(--g-fg) 9%, transparent);
+  --g-elev-0: none;
+  --g-elev-1: 0 1px 2px rgba(16,24,40,.05);
+  --g-elev-2: 0 4px 12px -2px rgba(16,24,40,.08), 0 1px 2px rgba(16,24,40,.04);
+  --g-elev-3: 0 16px 32px -8px rgba(16,24,40,.14), 0 2px 6px rgba(16,24,40,.05);
+  --g-elev-border: 1px solid var(--g-border);
+  --g-scrim: rgba(11,15,20,.44);
+  --g-focus-ring: 0 0 0 3px rgba(43,110,245,.32);
+  --g-focus-ring: 0 0 0 3px color-mix(in oklab, var(--g-brand) 32%, transparent);
+}
+
+/* ---------- Layer 2 · Semantic — Dark ---------- */
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --g-brand: var(--g-blue-400);
+  --g-brand: color-mix(in oklab, var(--g-brand-source) 76%, #FFF);
+  --g-bg: var(--g-gray-950);
+  --g-surface: var(--g-gray-900);
+  --g-surface-sunken: #070A0E;
+  --g-surface-raised: var(--g-gray-850);
+  --g-surface-inverse: var(--g-gray-100);
+  --g-fg: #E9EDF2;
+  --g-fg-muted: #9AA5B2;
+  --g-fg-subtle: #7C8795;
+  --g-fg-disabled: #525C68;
+  --g-fg-inverse: var(--g-gray-900);
+  --g-fg-on-brand: #06101C;
+  --g-fg-on-brand: contrast-color(var(--g-brand));
+  --g-border: #28303B;
+  --g-border-strong: #3A434F;
+  --g-brand-hover: var(--g-blue-300);
+  --g-brand-hover: color-mix(in oklab, var(--g-brand) 88%, #FFF);
+  --g-brand-press: var(--g-blue-200);
+  --g-brand-press: color-mix(in oklab, var(--g-brand) 76%, #FFF);
+  --g-brand-soft: #1A2434;
+  --g-brand-soft: color-mix(in oklab, var(--g-brand) 18%, var(--g-surface));
+  --g-brand-fg: var(--g-blue-300);
+  --g-brand-fg: color-mix(in oklab, var(--g-brand) 92%, #FFF);
+  --g-positive: var(--g-green-400);
+  --g-positive-soft: #14301F;
+  --g-positive-soft: color-mix(in oklab, var(--g-positive) 18%, var(--g-surface));
+  --g-critical: var(--g-red-400);
+  --g-critical-soft: #331A17;
+  --g-critical-soft: color-mix(in oklab, var(--g-critical) 18%, var(--g-surface));
+  --g-warning: var(--g-amber-400);
+  --g-warning-soft: #332616;
+  --g-warning-soft: color-mix(in oklab, var(--g-warning) 18%, var(--g-surface));
+  --g-layer-hover: rgba(255,255,255,.07);
+  --g-layer-hover: color-mix(in oklab, #FFF 7%, transparent);
+  --g-layer-press: rgba(255,255,255,.12);
+  --g-layer-press: color-mix(in oklab, #FFF 12%, transparent);
+  --g-elev-0: none;
+  --g-elev-1: none;  /* 다크에서는 그림자 대신 표면 밝기와 헤어라인으로 층을 만듭니다 */
+  --g-elev-2: 0 8px 24px -6px rgba(0,0,0,.55);
+  --g-elev-3: 0 24px 48px -12px rgba(0,0,0,.7);
+  --g-elev-border: 1px solid var(--g-border);
+  --g-scrim: rgba(0,0,0,.62);
+  --g-focus-ring: 0 0 0 3px rgba(85,140,251,.4);
+  --g-focus-ring: 0 0 0 3px color-mix(in oklab, var(--g-brand) 40%, transparent);
+}
+
+/* 테마를 지정하지 않으면 OS 설정을 따릅니다 */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --g-brand: var(--g-blue-400);
+    --g-brand: color-mix(in oklab, var(--g-brand-source) 76%, #FFF);
+    --g-bg: var(--g-gray-950);
+    --g-surface: var(--g-gray-900);
+    --g-surface-sunken: #070A0E;
+    --g-surface-raised: var(--g-gray-850);
+    --g-surface-inverse: var(--g-gray-100);
+    --g-fg: #E9EDF2;
+    --g-fg-muted: #9AA5B2;
+    --g-fg-subtle: #7C8795;
+    --g-fg-disabled: #525C68;
+    --g-fg-inverse: var(--g-gray-900);
+    --g-fg-on-brand: #06101C;
+    --g-fg-on-brand: contrast-color(var(--g-brand));
+    --g-border: #28303B;
+    --g-border-strong: #3A434F;
+    --g-brand-hover: var(--g-blue-300);
+    --g-brand-hover: color-mix(in oklab, var(--g-brand) 88%, #FFF);
+    --g-brand-press: var(--g-blue-200);
+    --g-brand-press: color-mix(in oklab, var(--g-brand) 76%, #FFF);
+    --g-brand-soft: #1A2434;
+    --g-brand-soft: color-mix(in oklab, var(--g-brand) 18%, var(--g-surface));
+    --g-brand-fg: var(--g-blue-300);
+    --g-brand-fg: color-mix(in oklab, var(--g-brand) 92%, #FFF);
+    --g-positive: var(--g-green-400);
+    --g-positive-soft: #14301F;
+    --g-positive-soft: color-mix(in oklab, var(--g-positive) 18%, var(--g-surface));
+    --g-critical: var(--g-red-400);
+    --g-critical-soft: #331A17;
+    --g-critical-soft: color-mix(in oklab, var(--g-critical) 18%, var(--g-surface));
+    --g-warning: var(--g-amber-400);
+    --g-warning-soft: #332616;
+    --g-warning-soft: color-mix(in oklab, var(--g-warning) 18%, var(--g-surface));
+    --g-layer-hover: rgba(255,255,255,.07);
+    --g-layer-hover: color-mix(in oklab, #FFF 7%, transparent);
+    --g-layer-press: rgba(255,255,255,.12);
+    --g-layer-press: color-mix(in oklab, #FFF 12%, transparent);
+    --g-elev-0: none;
+    --g-elev-1: none;
+    --g-elev-2: 0 8px 24px -6px rgba(0,0,0,.55);
+    --g-elev-3: 0 24px 48px -12px rgba(0,0,0,.7);
+    --g-elev-border: 1px solid var(--g-border);
+    --g-scrim: rgba(0,0,0,.62);
+    --g-focus-ring: 0 0 0 3px rgba(85,140,251,.4);
+    --g-focus-ring: 0 0 0 3px color-mix(in oklab, var(--g-brand) 40%, transparent);
+  }
+}
+
+/* ---------- Layer 3 · Component — Density ---------- */
+/* 손가락이 닿는 곳. 모바일 앱, 일반 웹. */
+:root,
+[data-density="comfortable"] {
+  --g-control-h: 44px;
+  --g-control-h-sm: 36px;
+  --g-control-h-lg: 54px;
+  --g-control-px: 16px;
+  --g-card-p: 20px;
+  --g-row-h: 56px;
+  --g-section-gap: 24px;
+  --g-stack-gap: 12px;
+  --g-switch-w: 46px;
+  --g-switch-h: 28px;
+  --g-check-size: 20px;
+  --g-badge-h: 24px;
+  --g-icon: 20px;
+
+  --g-radius-control: var(--g-radius-3);
+  --g-radius-card: var(--g-radius-4);
+  --g-radius-sheet: var(--g-radius-5);
+
+  --g-display: 700 32px/1.22 var(--g-font-sans);
+  --g-title-1: 700 24px/1.3 var(--g-font-sans);
+  --g-title-2: 700 19px/1.35 var(--g-font-sans);
+  --g-title-3: 600 16px/1.4 var(--g-font-sans);
+  --g-body: 400 15px/1.55 var(--g-font-sans);
+  --g-body-str: 600 15px/1.5 var(--g-font-sans);
+  --g-label: 600 14px/1.4 var(--g-font-sans);
+  --g-caption: 400 13px/1.45 var(--g-font-sans);
+  --g-micro: 500 11px/1.4 var(--g-font-sans);
+
+  --g-track-display: -0.035em;
+  --g-track-title: -0.025em;
+  --g-track-body: -0.012em;
+}
+
+/* 마우스가 닿는 곳. 대시보드, 관리자, 로컬 툴. 터치 기기에서는 안전장치가 자동으로 크기를 되돌립니다. */
+[data-density="compact"] {
+  --g-control-h: 34px;
+  --g-control-h-sm: 28px;
+  --g-control-h-lg: 40px;
+  --g-control-px: 12px;
+  --g-card-p: 14px;
+  --g-row-h: 38px;
+  --g-section-gap: 16px;
+  --g-stack-gap: 8px;
+  --g-switch-w: 34px;
+  --g-switch-h: 20px;
+  --g-check-size: 16px;
+  --g-badge-h: 20px;
+  --g-icon: 16px;
+
+  --g-radius-control: var(--g-radius-2);
+  --g-radius-card: var(--g-radius-3);
+  --g-radius-sheet: var(--g-radius-4);
+
+  --g-display: 700 24px/1.25 var(--g-font-sans);
+  --g-title-1: 700 19px/1.3 var(--g-font-sans);
+  --g-title-2: 700 16px/1.35 var(--g-font-sans);
+  --g-title-3: 600 14px/1.4 var(--g-font-sans);
+  --g-body: 400 13px/1.5 var(--g-font-sans);
+  --g-body-str: 600 13px/1.45 var(--g-font-sans);
+  --g-label: 600 12px/1.4 var(--g-font-sans);
+  --g-caption: 400 12px/1.45 var(--g-font-sans);
+  --g-micro: 500 11px/1.4 var(--g-font-sans);
+
+  --g-track-display: -0.03em;
+  --g-track-title: -0.02em;
+  --g-track-body: -0.006em;
+}
+
+/* ---------- 안전장치 ---------- */
+/* 조밀 모드가 터치 기기에서 열렸을 때 최소 터치 영역을 되돌리는 안전장치입니다. v1.0 에서 추가. */
+@media (pointer: coarse) {
+  [data-density="compact"] {
+    --g-control-h: 40px;
+    --g-control-h-sm: 36px;
+    --g-row-h: 44px;
+    --g-check-size: 20px;
+    --g-switch-w: 40px;
+    --g-switch-h: 24px;
+  }
+}
+
+/* 모션을 원하지 않는 사용자: 기간 토큰과 반복 애니메이션을 함께 정지 */
+@media (prefers-reduced-motion: reduce) {
+  :root { --g-dur-1: 0ms; --g-dur-2: 0ms; --g-dur-3: 0ms; --g-dur-4: 0ms; }
+  .g-skeleton { animation: none; background: var(--g-surface-sunken); }
+  .g-btn[data-loading="true"]::before { animation: none; }
+}

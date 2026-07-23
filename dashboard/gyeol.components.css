@@ -1,0 +1,604 @@
+/* =============================================================
+   GYEOL Design System · Components  v1.0
+   모든 값은 토큰에서만 옵니다. 여기에 하드코딩된 색·치수는 없습니다.
+   ============================================================= */
+
+/* ---------- Reset & base ---------- */
+*, *::before, *::after { box-sizing: border-box; }
+
+.g-root {
+  background: var(--g-bg);
+  color: var(--g-fg);
+  font: var(--g-body);
+  letter-spacing: var(--g-track-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+:where(.g-root) :focus-visible {
+  outline: none;
+  box-shadow: var(--g-focus-ring);
+  /* border-radius 를 강제하지 않습니다. 링은 요소 고유의 반경을 그대로 따릅니다. */
+}
+
+/* ---------- Typography ---------- */
+.g-display  { font: var(--g-display); letter-spacing: var(--g-track-display); margin: 0; }
+.g-title-1  { font: var(--g-title-1); letter-spacing: var(--g-track-title); margin: 0; }
+.g-title-2  { font: var(--g-title-2); letter-spacing: var(--g-track-title); margin: 0; }
+.g-title-3  { font: var(--g-title-3); letter-spacing: var(--g-track-title); margin: 0; }
+.g-body     { font: var(--g-body); margin: 0; }
+.g-body-str { font: var(--g-body-str); letter-spacing: var(--g-track-body); margin: 0; }
+.g-label    { font: var(--g-label); margin: 0; }
+.g-caption  { font: var(--g-caption); color: var(--g-fg-muted); margin: 0; }
+.g-micro    { font: var(--g-micro); color: var(--g-fg-subtle); letter-spacing: .04em; margin: 0; }
+
+.g-muted    { color: var(--g-fg-muted); }
+.g-subtle   { color: var(--g-fg-subtle); }
+.g-num      { font-variant-numeric: tabular-nums lining-nums; }
+.g-mono     { font-family: var(--g-font-mono); }
+
+/* ---------- Layout helpers ---------- */
+.g-stack   { display: flex; flex-direction: column; gap: var(--g-stack-gap); }
+.g-row     { display: flex; align-items: center; gap: var(--g-space-4); }
+.g-between { display: flex; align-items: center; justify-content: space-between; gap: var(--g-space-4); }
+.g-grow    { flex: 1; min-width: 0; }
+.g-section { display: flex; flex-direction: column; gap: var(--g-section-gap); }
+
+/* ============================================================
+   Button
+   ============================================================ */
+.g-btn {
+  --_bg: transparent;
+  --_fg: var(--g-fg);
+  --_bd: transparent;
+
+  appearance: none;
+  display: inline-flex; align-items: center; justify-content: center;
+  gap: var(--g-space-3);
+  height: var(--g-control-h);
+  padding-inline: var(--g-control-px);
+  border: 1px solid var(--_bd);
+  border-radius: var(--g-radius-control);
+  background: var(--_bg);
+  color: var(--_fg);
+  font: var(--g-body-str);
+  letter-spacing: var(--g-track-body);
+  cursor: pointer;
+  white-space: nowrap;
+  position: relative;
+  isolation: isolate;
+  transition: background-color var(--g-motion-tap),
+              border-color var(--g-motion-tap),
+              color var(--g-motion-tap),
+              transform var(--g-motion-tap);
+}
+.g-btn::after {
+  content: ""; position: absolute; inset: 0; z-index: -1;
+  border-radius: inherit; background: transparent;
+  transition: background-color var(--g-motion-tap);
+}
+.g-btn:hover::after  { background: var(--g-layer-hover); }
+.g-btn:active        { transform: scale(.975); }
+.g-btn:active::after { background: var(--g-layer-press); }
+.g-btn:disabled      { color: var(--g-fg-disabled); cursor: not-allowed; transform: none; }
+.g-btn:disabled::after { background: transparent; }
+
+.g-btn--primary   { --_bg: var(--g-brand); --_fg: var(--g-fg-on-brand); }
+.g-btn--primary:hover  { --_bg: var(--g-brand-hover); }
+.g-btn--primary:active { --_bg: var(--g-brand-press); }
+.g-btn--primary:disabled { --_bg: var(--g-surface-sunken); --_fg: var(--g-fg-disabled); }
+
+.g-btn--secondary { --_bg: var(--g-surface); --_bd: var(--g-border-strong); --_fg: var(--g-fg); }
+.g-btn--soft      { --_bg: var(--g-brand-soft); --_fg: var(--g-brand-fg); }
+.g-btn--ghost     { --_bg: transparent; --_fg: var(--g-fg-muted); }
+.g-btn--danger    { --_bg: var(--g-critical); --_fg: #fff; }
+
+.g-btn--sm  { height: var(--g-control-h-sm); padding-inline: calc(var(--g-control-px) * .7); font: var(--g-label); }
+.g-btn--lg  { height: var(--g-control-h-lg); font: var(--g-title-3); }
+.g-btn--block { width: 100%; }
+.g-btn--icon  { width: var(--g-control-h); padding-inline: 0; }
+
+/* 로딩 상태는 폭이 변하지 않습니다 */
+.g-btn[data-loading="true"] { color: transparent; pointer-events: none; }
+.g-btn[data-loading="true"]::before {
+  content: ""; position: absolute; width: 16px; height: 16px; border-radius: 50%;
+  border: 2px solid color-mix(in oklab, currentColor 30%, transparent);
+  border-top-color: var(--_fg);
+  animation: g-spin .7s linear infinite;
+}
+@keyframes g-spin { to { transform: rotate(360deg); } }
+
+/* 화면 하단 고정 CTA (모바일) */
+.g-dock {
+  position: sticky; bottom: 0;
+  padding: var(--g-space-4) var(--g-space-5) calc(var(--g-space-5) + env(safe-area-inset-bottom));
+  background: linear-gradient(to top, var(--g-bg) 65%, transparent);
+}
+
+/* ============================================================
+   Field · Input / Textarea / Select
+   ============================================================ */
+.g-field { display: flex; flex-direction: column; gap: var(--g-space-2); }
+.g-field > label { font: var(--g-label); color: var(--g-fg-muted); }
+
+.g-input {
+  appearance: none; width: 100%;
+  height: var(--g-control-h);
+  padding-inline: var(--g-control-px);
+  background: var(--g-surface);
+  border: 1px solid var(--g-border-strong);
+  border-radius: var(--g-radius-control);
+  color: var(--g-fg);
+  font: var(--g-body);
+  letter-spacing: var(--g-track-body);
+  transition: border-color var(--g-motion-state), box-shadow var(--g-motion-state);
+}
+.g-input::placeholder { color: var(--g-fg-subtle); }
+.g-input:hover  { border-color: var(--g-fg-subtle); }
+.g-input:focus  { outline: none; border-color: var(--g-brand); box-shadow: var(--g-focus-ring); }
+.g-input:disabled { background: var(--g-surface-sunken); color: var(--g-fg-disabled); cursor: not-allowed; }
+textarea.g-input { height: auto; min-height: calc(var(--g-control-h) * 2); padding-block: var(--g-space-3); resize: vertical; }
+select.g-input { cursor: pointer; }
+
+.g-field[data-invalid="true"] .g-input,
+.g-input[aria-invalid="true"] { border-color: var(--g-critical); }
+.g-field .g-help  { font: var(--g-caption); color: var(--g-fg-subtle); }
+.g-field .g-error { font: var(--g-caption); color: var(--g-critical); }
+
+/* ============================================================
+   Switch / Checkbox
+   ============================================================ */
+.g-switch {
+  appearance: none; flex: none; cursor: pointer;
+  width: var(--g-switch-w); height: var(--g-switch-h); border-radius: var(--g-radius-full);
+  background: var(--g-border-strong); position: relative;
+  transition: background-color var(--g-motion-state);
+}
+.g-switch::after {
+  content: ""; position: absolute; inset-block-start: 3px; inset-inline-start: 3px;
+  width: calc(var(--g-switch-h) - 6px); aspect-ratio: 1; border-radius: 50%;
+  background: #fff; box-shadow: var(--g-elev-1);
+  transition: transform var(--g-motion-sheet);
+}
+.g-switch:checked { background: var(--g-brand); }
+.g-switch:checked::after { transform: translateX(calc(var(--g-switch-w) - var(--g-switch-h))); }
+[dir="rtl"] .g-switch:checked::after { transform: translateX(calc((var(--g-switch-w) - var(--g-switch-h)) * -1)); }
+
+.g-check {
+  appearance: none; flex: none; cursor: pointer;
+  width: var(--g-check-size); aspect-ratio: 1; border-radius: var(--g-radius-1);
+  border: 1.5px solid var(--g-border-strong); background: var(--g-surface);
+  display: grid; place-content: center;
+  transition: background-color var(--g-motion-tap), border-color var(--g-motion-tap);
+}
+.g-check::after {
+  content: ""; width: 10px; height: 6px;
+  border-left: 2px solid var(--g-fg-on-brand); border-bottom: 2px solid var(--g-fg-on-brand);
+  transform: rotate(-45deg) scale(.5); opacity: 0;
+  transition: transform var(--g-motion-sheet), opacity var(--g-dur-1) linear;
+}
+.g-check:checked { background: var(--g-brand); border-color: var(--g-brand); }
+.g-check:checked::after { transform: rotate(-45deg) scale(1); opacity: 1; }
+
+/* ============================================================
+   Card / Surface
+   ============================================================ */
+.g-card {
+  background: var(--g-surface);
+  border: var(--g-elev-border);
+  border-radius: var(--g-radius-card);
+  padding: var(--g-card-p);
+  box-shadow: var(--g-elev-1);
+}
+.g-card--raised { background: var(--g-surface-raised); box-shadow: var(--g-elev-2); }
+.g-card--flat   { box-shadow: none; }
+.g-card--brand  { background: var(--g-brand-soft); border-color: transparent; box-shadow: none; }
+
+.g-card--action { cursor: pointer; transition: transform var(--g-motion-tap), box-shadow var(--g-motion-state); }
+.g-card--action:hover  { box-shadow: var(--g-elev-2); }
+.g-card--action:active { transform: scale(.99); }
+
+.g-divider { height: 1px; background: var(--g-border); border: 0; margin: 0; }
+
+/* ============================================================
+   List row — 모바일 목록과 대시보드 목록 모두 이 하나로
+   ============================================================ */
+.g-list { display: flex; flex-direction: column; }
+.g-item {
+  display: flex; align-items: center; gap: var(--g-space-4);
+  min-height: var(--g-row-h);
+  padding: var(--g-space-3) var(--g-space-2);
+  border-radius: var(--g-radius-2);
+  text-decoration: none; color: inherit;
+  transition: background-color var(--g-motion-tap);
+}
+.g-item + .g-item { box-shadow: 0 -1px 0 var(--g-border); }
+.g-list--plain .g-item + .g-item { box-shadow: none; }
+.g-item[href], .g-item[role="button"] { cursor: pointer; }
+.g-item[href]:hover, .g-item[role="button"]:hover { background: var(--g-layer-hover); }
+.g-item__title { font: var(--g-body-str); letter-spacing: var(--g-track-body); }
+.g-item__sub   { font: var(--g-caption); color: var(--g-fg-subtle); }
+.g-item__value { font: var(--g-body-str); font-variant-numeric: tabular-nums lining-nums; }
+
+.g-avatar {
+  flex: none; display: grid; place-items: center;
+  width: calc(var(--g-row-h) * .68); aspect-ratio: 1;
+  border-radius: var(--g-radius-3);
+  background: var(--g-surface-sunken); color: var(--g-fg-muted);
+  font: var(--g-label);
+}
+.g-avatar--brand { background: var(--g-brand-soft); color: var(--g-brand-fg); }
+
+/* ============================================================
+   Badge / Status
+   ============================================================ */
+.g-badge {
+  display: inline-flex; align-items: center; gap: var(--g-space-2);
+  height: var(--g-badge-h);
+  padding-inline: var(--g-space-3);
+  border-radius: var(--g-radius-full);
+  background: var(--g-surface-sunken); color: var(--g-fg-muted);
+  font: var(--g-micro); letter-spacing: 0;
+  white-space: nowrap;
+}
+.g-badge--brand    { background: var(--g-brand-soft);    color: var(--g-brand-fg); }
+.g-badge--positive { background: var(--g-positive-soft); color: var(--g-positive); }
+.g-badge--critical { background: var(--g-critical-soft); color: var(--g-critical); }
+.g-badge--warning  { background: var(--g-warning-soft);  color: var(--g-warning); }
+.g-badge__dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+/* ============================================================
+   Chip / Segmented
+   ============================================================ */
+.g-chips { display: flex; gap: var(--g-space-2); flex-wrap: wrap; }
+.g-chip {
+  appearance: none; cursor: pointer;
+  height: var(--g-control-h-sm); padding-inline: var(--g-space-4);
+  border: 1px solid var(--g-border); border-radius: var(--g-radius-full);
+  background: var(--g-surface); color: var(--g-fg-muted);
+  font: var(--g-label); letter-spacing: var(--g-track-body);
+  transition: background-color var(--g-motion-tap), color var(--g-motion-tap), border-color var(--g-motion-tap);
+}
+.g-chip:hover { background: var(--g-layer-hover); }
+.g-chip[aria-pressed="true"] { background: var(--g-fg); border-color: var(--g-fg); color: var(--g-surface); }
+
+.g-segmented {
+  display: inline-flex; padding: 3px; gap: 2px;
+  background: var(--g-surface-sunken); border-radius: var(--g-radius-control);
+}
+.g-segmented button {
+  appearance: none; border: 0; cursor: pointer;
+  height: calc(var(--g-control-h) - 8px); padding-inline: var(--g-space-4);
+  border-radius: calc(var(--g-radius-control) - 3px);
+  background: transparent; color: var(--g-fg-muted);
+  font: var(--g-label); letter-spacing: var(--g-track-body);
+  transition: background-color var(--g-motion-state), color var(--g-motion-state);
+}
+.g-segmented button[aria-pressed="true"] {
+  background: var(--g-surface); color: var(--g-fg); box-shadow: var(--g-elev-1);
+}
+
+/* ============================================================
+   Tabs
+   ============================================================ */
+.g-tabs { display: flex; gap: var(--g-space-6); border-bottom: 1px solid var(--g-border); }
+.g-tabs button {
+  appearance: none; background: none; border: 0; cursor: pointer;
+  padding: var(--g-space-3) 0; margin-bottom: -1px;
+  border-bottom: 2px solid transparent;
+  color: var(--g-fg-subtle); font: var(--g-body-str); letter-spacing: var(--g-track-body);
+  transition: color var(--g-motion-state), border-color var(--g-motion-state);
+}
+.g-tabs button:hover { color: var(--g-fg-muted); }
+.g-tabs button[aria-selected="true"] { color: var(--g-fg); border-color: var(--g-brand); }
+
+/* ============================================================
+   Table (대시보드)
+   ============================================================ */
+.g-table { width: 100%; border-collapse: collapse; font: var(--g-body); }
+.g-table th {
+  text-align: left; font: var(--g-micro); letter-spacing: .06em; text-transform: uppercase;
+  color: var(--g-fg-subtle); padding: var(--g-space-3) var(--g-space-4);
+  border-bottom: 1px solid var(--g-border); white-space: nowrap;
+}
+.g-table td {
+  padding: 0 var(--g-space-4); height: var(--g-row-h);
+  border-bottom: 1px solid var(--g-border); vertical-align: middle;
+}
+.g-table tbody tr { transition: background-color var(--g-motion-tap); }
+.g-table tbody tr:hover { background: var(--g-layer-hover); }
+.g-table .g-num, .g-table td.num { text-align: right; font-variant-numeric: tabular-nums lining-nums; }
+
+/* ============================================================
+   Stat (KPI)
+   ============================================================ */
+.g-stat__label { font: var(--g-caption); color: var(--g-fg-subtle); }
+.g-stat__value {
+  font: var(--g-display); letter-spacing: var(--g-track-display);
+  font-variant-numeric: tabular-nums lining-nums; margin: var(--g-space-2) 0 0;
+}
+.g-stat__delta { font: var(--g-caption); font-variant-numeric: tabular-nums lining-nums; }
+.g-stat__delta[data-dir="up"]   { color: var(--g-positive); }
+.g-stat__delta[data-dir="down"] { color: var(--g-critical); }
+
+/* ============================================================
+   Progress / Skeleton / Empty
+   ============================================================ */
+.g-progress { height: 6px; border-radius: var(--g-radius-full); background: var(--g-surface-sunken); overflow: hidden; }
+.g-progress > i { display: block; height: 100%; border-radius: inherit; background: var(--g-brand);
+                  transition: width var(--g-motion-sheet); }
+
+.g-skeleton {
+  border-radius: var(--g-radius-2);
+  background: linear-gradient(90deg, var(--g-surface-sunken) 25%,
+              color-mix(in oklab, var(--g-surface-sunken) 60%, var(--g-surface)) 37%,
+              var(--g-surface-sunken) 63%);
+  background-size: 400% 100%;
+  animation: g-shimmer 1.4s ease infinite;
+}
+@keyframes g-shimmer { 0% { background-position: 100% 0; } 100% { background-position: 0 0; } }
+
+.g-empty { text-align: center; padding: var(--g-space-10) var(--g-space-5); }
+.g-empty h3 { font: var(--g-title-3); letter-spacing: var(--g-track-title); margin: 0 0 var(--g-space-2); }
+.g-empty p  { font: var(--g-caption); color: var(--g-fg-muted); margin: 0 0 var(--g-space-5); }
+
+/* ============================================================
+   Overlay · Sheet · Modal · Toast
+   ============================================================ */
+.g-scrim {
+  position: absolute; inset: 0; z-index: var(--g-z-overlay);
+  background: var(--g-scrim); opacity: 0; pointer-events: none;
+  transition: opacity var(--g-motion-state);
+}
+[data-overlay="open"] > .g-scrim { opacity: 1; pointer-events: auto; }
+
+.g-sheet {
+  position: absolute; left: 0; right: 0; bottom: 0; z-index: var(--g-z-sheet);
+  background: var(--g-surface-raised);
+  border-radius: var(--g-radius-sheet) var(--g-radius-sheet) 0 0;
+  padding: var(--g-space-3) var(--g-space-5) calc(var(--g-space-6) + env(safe-area-inset-bottom));
+  box-shadow: var(--g-elev-3);
+  transform: translateY(101%);
+  transition: transform var(--g-motion-sheet);
+}
+[data-overlay="open"] > .g-sheet { transform: translateY(0); }
+.g-sheet__grip { width: 36px; height: 4px; border-radius: var(--g-radius-full);
+                 background: var(--g-border-strong); margin: 0 auto var(--g-space-5); }
+
+.g-modal {
+  position: absolute; z-index: var(--g-z-sheet);
+  left: 50%; top: 50%; width: min(420px, calc(100% - var(--g-space-8)));
+  background: var(--g-surface-raised); border: var(--g-elev-border);
+  border-radius: var(--g-radius-card); padding: var(--g-space-6);
+  box-shadow: var(--g-elev-3);
+  transform: translate(-50%, -46%) scale(.97); opacity: 0; pointer-events: none;
+  transition: transform var(--g-motion-reveal), opacity var(--g-motion-state);
+}
+[data-overlay="open"] > .g-modal { transform: translate(-50%, -50%) scale(1); opacity: 1; pointer-events: auto; }
+
+.g-toasts {
+  position: fixed; z-index: var(--g-z-toast);
+  inset-inline: var(--g-space-5); inset-block-end: var(--g-space-6);
+  display: flex; flex-direction: column-reverse; gap: var(--g-space-3);
+  align-items: center; pointer-events: none;
+}
+.g-toast {
+  display: flex; align-items: center; gap: var(--g-space-4);
+  width: fit-content; max-width: min(440px, 100%);
+  background: var(--g-surface-inverse); color: var(--g-fg-inverse);
+  border-radius: var(--g-radius-control);
+  padding: var(--g-space-4) var(--g-space-5);
+  font: var(--g-body-str); letter-spacing: var(--g-track-body);
+  box-shadow: var(--g-elev-3); pointer-events: auto;
+  transform: translateY(12px) scale(.97); opacity: 0;
+  transition: transform var(--g-motion-sheet), opacity var(--g-motion-state);
+}
+.g-toast[data-open="true"] { transform: none; opacity: 1; }
+.g-toast--critical { background: var(--g-critical); color: #fff; }
+.g-toast__action {
+  appearance: none; border: 0; background: none; cursor: pointer;
+  color: inherit; font: var(--g-label); text-decoration: underline;
+  text-underline-offset: 3px; padding: 0;
+}
+/* 화면 안쪽에 붙는 토스트 (데모·미리보기용) */
+.g-toasts--inset { position: absolute; }
+
+/* ============================================================
+   Navigation
+   ============================================================ */
+.g-appbar {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--g-space-4);
+  height: var(--g-control-h-lg); padding-inline: var(--g-space-5);
+  background: var(--g-bg);
+}
+.g-appbar__title { font: var(--g-title-3); letter-spacing: var(--g-track-title); }
+
+.g-tabbar {
+  display: flex; background: var(--g-surface); border-top: 1px solid var(--g-border);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.g-tabbar a {
+  flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px;
+  padding: var(--g-space-3) 0; text-decoration: none;
+  color: var(--g-fg-subtle); font: var(--g-micro);
+  transition: color var(--g-motion-state);
+}
+.g-tabbar a[aria-current="page"] { color: var(--g-brand); }
+
+.g-sidebar {
+  display: flex; flex-direction: column; gap: var(--g-space-1);
+  padding: var(--g-space-4); background: var(--g-surface); border-right: 1px solid var(--g-border);
+}
+.g-sidebar a {
+  display: flex; align-items: center; gap: var(--g-space-3);
+  height: var(--g-control-h); padding-inline: var(--g-space-4);
+  border-radius: var(--g-radius-control); text-decoration: none;
+  color: var(--g-fg-muted); font: var(--g-body-str); letter-spacing: var(--g-track-body);
+  transition: background-color var(--g-motion-tap), color var(--g-motion-tap);
+}
+.g-sidebar a:hover { background: var(--g-layer-hover); color: var(--g-fg); }
+.g-sidebar a[aria-current="page"] { background: var(--g-brand-soft); color: var(--g-brand-fg); }
+
+/* ============================================================
+   Utility
+   ============================================================ */
+.g-scroll { overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--g-border-strong) transparent; }
+.g-scroll::-webkit-scrollbar { width: 8px; height: 8px; }
+.g-scroll::-webkit-scrollbar-thumb { background: var(--g-border-strong); border-radius: var(--g-radius-full); }
+.g-scroll::-webkit-scrollbar-track { background: transparent; }
+
+.g-sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+/* 목록 등장 — 순차 지연은 인라인 style 로 --i 를 넘겨 주세요 */
+.g-enter { opacity: 0; transform: translateY(8px);
+           animation: g-enter var(--g-dur-3) var(--g-ease-out) forwards;
+           animation-delay: calc(var(--g-i, 0) * 40ms); }
+@keyframes g-enter { to { opacity: 1; transform: none; } }
+
+
+/* ============================================================
+   v0.2 추가 — 대시보드 실사용에서 빠져 있던 것들
+   ============================================================ */
+
+/* 스티키 테이블 헤더 : 긴 목록에서 열 이름이 사라지지 않습니다 */
+.g-table--sticky thead th {
+  position: sticky; top: 0; z-index: 1;
+  background: var(--g-surface);
+  box-shadow: inset 0 -1px 0 var(--g-border);
+  border-bottom: 0;
+}
+.g-table tbody tr[aria-selected="true"] { background: var(--g-brand-soft); }
+.g-table td.g-shrink, .g-table th.g-shrink { width: 1%; white-space: nowrap; }
+
+/* 툴바 : 행을 고르면 아래에서 올라옵니다 */
+.g-toolbar {
+  position: sticky; bottom: var(--g-space-5); z-index: var(--g-z-sticky);
+  display: flex; align-items: center; gap: var(--g-space-4);
+  margin: 0 auto; width: fit-content; max-width: 100%;
+  padding: var(--g-space-3) var(--g-space-3) var(--g-space-3) var(--g-space-5);
+  background: var(--g-surface-inverse); color: var(--g-fg-inverse);
+  border-radius: var(--g-radius-full); box-shadow: var(--g-elev-3);
+  transform: translateY(calc(100% + var(--g-space-6))); opacity: 0; pointer-events: none;
+  transition: transform var(--g-motion-sheet), opacity var(--g-motion-state);
+}
+.g-toolbar[data-open="true"] { transform: translateY(0); opacity: 1; pointer-events: auto; }
+.g-toolbar .g-btn--ghost { color: color-mix(in oklab, var(--g-fg-inverse) 72%, transparent); }
+
+/* 드로어 : 오른쪽에서 들어오는 상세 패널 */
+.g-drawer {
+  position: absolute; inset-block: 0; inset-inline-end: 0; z-index: var(--g-z-sheet);
+  width: min(400px, 92%);
+  background: var(--g-surface); border-inline-start: 1px solid var(--g-border);
+  box-shadow: var(--g-elev-3);
+  display: flex; flex-direction: column;
+  transform: translateX(101%); opacity: 1;
+  transition: transform var(--g-dur-3) var(--g-ease-out);
+}
+[dir="rtl"] .g-drawer { transform: translateX(-101%); }
+[data-drawer="open"] > .g-drawer { transform: translateX(0); }
+.g-drawer__head { padding: var(--g-space-5); border-bottom: 1px solid var(--g-border); }
+.g-drawer__body { padding: var(--g-space-5); overflow-y: auto; flex: 1; }
+.g-drawer__foot { padding: var(--g-space-5); border-top: 1px solid var(--g-border); display: flex; gap: var(--g-space-3); }
+
+/* 메뉴 / 드롭다운 */
+.g-menu {
+  position: absolute; z-index: var(--g-z-popover);
+  min-width: 180px; padding: var(--g-space-2);
+  background: var(--g-surface-raised); border: 1px solid var(--g-border);
+  border-radius: var(--g-radius-card); box-shadow: var(--g-elev-3);
+  transform: scale(.96) translateY(-4px); transform-origin: top right;
+  opacity: 0; pointer-events: none;
+  transition: transform var(--g-motion-reveal), opacity var(--g-dur-1) linear;
+}
+.g-menu[data-open="true"] { transform: none; opacity: 1; pointer-events: auto; }
+.g-menu button {
+  appearance: none; border: 0; background: none; cursor: pointer; width: 100%;
+  display: flex; align-items: center; justify-content: space-between; gap: var(--g-space-4);
+  height: var(--g-control-h); padding-inline: var(--g-space-4);
+  border-radius: var(--g-radius-2); color: var(--g-fg);
+  font: var(--g-body); letter-spacing: var(--g-track-body); text-align: start;
+  transition: background-color var(--g-motion-tap);
+}
+.g-menu button:hover { background: var(--g-layer-hover); }
+.g-menu button[data-critical] { color: var(--g-critical); }
+
+/* 키보드 단축키 표시 */
+.g-kbd {
+  display: inline-grid; place-items: center; min-width: 20px; height: 20px;
+  padding-inline: 5px; border-radius: var(--g-radius-1);
+  background: var(--g-surface-sunken); border: 1px solid var(--g-border);
+  font: var(--g-micro); font-family: var(--g-font-mono); color: var(--g-fg-subtle);
+}
+
+/* 검색 필드 */
+.g-search { position: relative; display: flex; align-items: center; }
+.g-search .g-input { padding-inline-start: calc(var(--g-control-px) + var(--g-icon) + 6px); }
+.g-search__icon {
+  position: absolute; inset-inline-start: var(--g-control-px);
+  width: var(--g-icon); color: var(--g-fg-subtle); pointer-events: none;
+  display: grid; place-items: center;
+}
+
+/* 페이지네이션 */
+.g-pagination { display: flex; align-items: center; gap: var(--g-space-2); }
+.g-pagination button {
+  appearance: none; cursor: pointer; min-width: var(--g-control-h-sm); height: var(--g-control-h-sm);
+  padding-inline: var(--g-space-3); border: 1px solid transparent; border-radius: var(--g-radius-2);
+  background: none; color: var(--g-fg-muted); font: var(--g-label);
+  transition: background-color var(--g-motion-tap), color var(--g-motion-tap);
+}
+.g-pagination button:hover { background: var(--g-layer-hover); color: var(--g-fg); }
+.g-pagination button[aria-current="page"] { background: var(--g-brand-soft); color: var(--g-brand-fg); }
+.g-pagination button:disabled { color: var(--g-fg-disabled); cursor: not-allowed; background: none; }
+
+/* 앱 셸 : 사이드바 + 상단바 + 본문 */
+.g-shell { display: grid; grid-template-columns: var(--g-shell-nav, 224px) 1fr; height: 100dvh; overflow: hidden; }
+.g-shell__main { display: flex; flex-direction: column; min-width: 0; position: relative; overflow: hidden; }
+.g-shell__top {
+  display: flex; align-items: center; gap: var(--g-space-4);
+  padding: var(--g-space-4) var(--g-space-6);
+  border-bottom: 1px solid var(--g-border); background: var(--g-surface);
+}
+.g-shell__body { flex: 1; overflow-y: auto; padding: var(--g-space-6); }
+@media (max-width: 860px) {
+  .g-shell { grid-template-columns: 1fr; }
+  .g-shell > .g-sidebar { display: none; }
+}
+
+
+/* ============================================================
+   v1.0 추가 — 인라인 알림 · 툴팁
+   ============================================================ */
+
+/* 알림 배너 : 화면에 머무는 상태 메시지 (토스트는 스쳐 지나가는 것) */
+.g-alert {
+  display: flex; gap: var(--g-space-4); align-items: flex-start;
+  padding: var(--g-space-4) var(--g-space-5);
+  border-radius: var(--g-radius-card);
+  background: var(--g-surface-sunken); color: var(--g-fg);
+  border-inline-start: 3px solid var(--g-border-strong);
+}
+.g-alert__title { font: var(--g-body-str); letter-spacing: var(--g-track-body); }
+.g-alert__body  { font: var(--g-caption); color: var(--g-fg-muted); margin-top: 2px; }
+.g-alert--brand    { background: var(--g-brand-soft);    border-color: var(--g-brand); }
+.g-alert--positive { background: var(--g-positive-soft); border-color: var(--g-positive); }
+.g-alert--warning  { background: var(--g-warning-soft);  border-color: var(--g-warning); }
+.g-alert--critical { background: var(--g-critical-soft); border-color: var(--g-critical); }
+
+/* 툴팁 : 이름을 보충할 때만. 설명을 숨기는 용도로 쓰지 마세요. */
+.g-tip { position: relative; display: inline-flex; }
+.g-tip__bubble {
+  position: absolute; z-index: var(--g-z-tooltip);
+  inset-block-end: calc(100% + 8px); inset-inline-start: 50%;
+  transform: translateX(-50%) translateY(4px);
+  padding: var(--g-space-2) var(--g-space-3);
+  background: var(--g-surface-inverse); color: var(--g-fg-inverse);
+  border-radius: var(--g-radius-2); white-space: nowrap;
+  font: var(--g-caption); box-shadow: var(--g-elev-2);
+  opacity: 0; pointer-events: none;
+  transition: opacity var(--g-motion-tap), transform var(--g-motion-tap);
+}
+.g-tip:hover .g-tip__bubble,
+.g-tip:focus-within .g-tip__bubble { opacity: 1; transform: translateX(-50%); }
