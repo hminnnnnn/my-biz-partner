@@ -53,9 +53,10 @@ state/
 | 파일 · 필드 | 쓰는 주체 | 쓰는 시점 |
 |---|---|---|
 | `status.json` (todos 외) | **메인 에이전트** | 세션 시작 시 / 기본 업무(기록·브리핑·초안·이슈·리마인더) 실행 시마다 |
-| `status.json.todos[]` | **reminder · issue-tracker 스킬** (메인 에이전트가 실행) | reminder: 등록 시 `open` 추가 / 완료 시 `done`. issue-tracker: 개설 시 `open` 추가 / 해결 시 `done` |
+| `status.json.todos[]` | **reminder · issue-tracker 스킬** (메인 에이전트가 실행) **+ project-team 스킬(이월 항목만)** | reminder: 등록 시 `open` 추가 / 완료 시 `done`. issue-tracker: 개설 시 `open` 추가 / 해결 시 `done`. project-team: 완료 3분류에서 이월 확정 시 `open` 추가 |
 | `team.json` (기존 필드) | **project-team 스킬** | 팀 구성 시, 그리고 **단계 전환마다** |
 | `team.json.activeProject.{health,progress,outputs}` | **project-team 스킬** | health: 팀 구성 시 `"순항"`, 단계 전환·리스크 시 재평가 / progress: 단계 전환마다(단계 파생) / outputs: 산출물 저장 시마다 추가 |
+| `team.json.staff[]` | **project-team 스킬** | 채용 시 생성(`staff-guide.md` 규약), 대표의 변경 지시 시 수정. 프로젝트 종료와 무관하게 유지(재직) |
 | `dashboard-data.js` (`status`·`team` 래핑) | 위 JSON을 바꾼 쪽 | **JSON을 갱신할 때마다 반드시 함께 재생성** |
 | `dashboard-data.js` 파생 (`records`, todos overdue 재계산) | **`refresh-dashboard.sh`** | 래핑할 때마다 자동 — `notes/` 스캔 결과와 overdue 판정을 주입(파생, 원본 JSON은 불변) |
 
@@ -159,13 +160,30 @@ install.sh 도 마지막 단계에서 같은 스크립트를 호출한다.
 | `activeProject.health` | string | **(신설·additive)** `"순항"` \| `"주의"` \| `"지연"`. 없어도 됨 |
 | `activeProject.progress` | number | **(신설·additive)** `0~100` 정수. 단계 기반 파생(완료 단계 ÷ 전체 × 100). 없어도 됨 |
 | `activeProject.outputs` | array of string | **(신설·additive)** 산출물 파일 경로 배열. 없어도 됨 |
-| `activeProject.members` | array | 팀원. 항목: `{ "role": string, "task": string, "status": string }` |
+| `activeProject.members` | array | 팀원. 항목: `{ "role": string, "task": string, "status": string, "name"?: string }` — `name` 은 **(신설·additive)** 소집된 스태프 이름(`staff[]` 와 연결). 없어도 됨 |
 | `activeProject.log` | array | 진행 로그. 항목: `{ "time": "HH:MM", "message": string }` |
 | `history` | array | 완료된 프로젝트 요약 목록. 항목: `{ "goal": string, "startedAt": string(ISO 8601), "completedAt": string(ISO 8601), "summary": string }` |
 | `pipeline` | array | **(선택·additive)** 대기 중 프로젝트 목록(activeProject와 동일 골격). 현재 미사용 — 다중 프로젝트 대비 예약. 없어도 됨 |
+| `staff` | array | **(신설·additive)** 상비 팀원 캐릭터 8명 ("재직" — 프로젝트 종료와 무관하게 유지). 없어도 됨(하위호환). 항목: 아래 |
 | `updatedAt` | string | 마지막 갱신 시각 (ISO 8601) |
 
 `members[].status` 권장값: `"waiting"` \| `"working"` \| `"done"` \| `"blocked"`.
+
+**`staff[]` 항목 스키마 (신설 · additive):** project-team 스킬이 채용 시 생성한다 (`staff-guide.md` 규약).
+대시보드는 이 배열이 있으면 "우리 팀" 카드에 사람(이름·아바타·MBTI)을 얹고, `members[].name` 과 매칭해
+프로젝트 멤버를 사람 카드로 렌더한다. **없어도 v2와 동일하게 동작한다.**
+
+| 키 | 타입 | 설명 |
+|---|---|---|
+| `roleFile` | string | `roles/<파일>.md` 매칭 키 (예: `"researcher"`) |
+| `role` | string | 역할 표시명 (예: `"리서처"`) |
+| `name` | string | 이름 (한국 이름, 호명은 성 제외) |
+| `mbti` | string | MBTI 4글자 (업무 스타일 표현 수단 — 심리 진단 아님) |
+| `style` | string | 업무 스타일 한 문단 (보고 톤 / 판단 습관 / 주의점) |
+| `avatar` | object | `{ "initial": 이름 첫 글자, "color": "#hex", "emoji": "🔍" }` |
+| `appearance` | string | 외형 텍스트 묘사 (이미지 생성 없음 — 로드맵 소재) |
+| `relationships` | array | `{ "with": roleFile, "type": "tension"\|"synergy", "note": 서사 1줄, "effect": 절차 효과 1줄 }` |
+| `hiredAt` | string | 채용일 `YYYY-MM-DD` |
 
 **예시:**
 
@@ -198,8 +216,9 @@ install.sh 도 마지막 단계에서 같은 스크립트를 호출한다.
 ```
 
 > **하위호환 원칙(additive):** 위에서 **(신설·additive)** 로 표시된 필드
-> (`status.json.todos[]`, `team.json.activeProject.{health,progress,outputs}`)는 **없어도 대시보드가
-> 정상 동작**한다. 기존 필드는 하나도 바뀌지 않았다. 옛 데이터 파일도 그대로 읽힌다.
+> (`status.json.todos[]`, `team.json.activeProject.{health,progress,outputs}`,
+> `team.json.staff[]`, `members[].name`)는 **없어도 대시보드가 정상 동작**한다.
+> 기존 필드는 하나도 바뀌지 않았다. 옛 데이터 파일도 그대로 읽힌다.
 
 ### dashboard-data.js (파생 파일)
 
