@@ -69,7 +69,7 @@
     background: var(--g-surface-sunken); color: var(--g-fg-muted);
   }
   .navtab[aria-selected="true"] .badge { background: var(--g-surface); color: var(--g-brand-fg); }
-  .navtab .badge.warn-dot { min-width: 0; padding: 0; width: 7px; height: 7px; background: var(--g-warning); border-radius: var(--g-radius-full); }
+  .navtab .badge.warn { background: var(--g-warning-soft); color: var(--g-warning); }
 
   .side-foot {
     display: none; margin-top: auto; align-items: center; gap: var(--g-space-3);
@@ -77,6 +77,7 @@
     padding-top: var(--g-space-3); border-top: 1px solid var(--g-border);
   }
   .side-foot .spacer { flex: 1; }
+  .side-foot .upd-label { white-space: nowrap; }
   .refresh {
     display: inline-flex; align-items: center; gap: var(--g-space-2); white-space: nowrap;
     font: var(--g-caption); color: var(--g-fg-muted);
@@ -732,8 +733,9 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
       var badge = "";
       if (tb.id === "home") badge = "";
       else if (tb.id === "project") {
-        badge = '<span class="badge">' + badges.project + '</span>' +
-                (proj && proj.health === "주의" ? '<span class="badge warn-dot" title="주의"></span>' : "");
+        // 주의 상태는 별도 점 대신 숫자 배지 자체를 경고 톤으로 — 배지가 2개면 숫자 열이 어긋난다
+        var warn = proj && proj.health === "주의";
+        badge = '<span class="badge' + (warn ? ' warn" title="주의"' : '"') + '>' + badges.project + '</span>';
       } else {
         badge = '<span class="badge">' + esc(badges[tb.id] || "") + '</span>';
       }
