@@ -466,14 +466,9 @@
   .rec-chip .n { display: block; font: var(--g-title-2); font-variant-numeric: var(--g-font-numeric); }
   .rec-chip .k { font: var(--g-micro); color: var(--g-fg-muted); }
   .rec-item { display: flex; align-items: center; gap: var(--g-space-4); padding: var(--g-space-3) 2px; flex-wrap: wrap; }
-  .rec-item .acts, .rec-output .acts { margin-left: auto; }
-  .rec-folder { font: var(--g-micro); font-weight: 600; color: var(--g-fg-subtle); flex: none; min-width: 52px; }
+  .rec-item .acts { margin-left: auto; }
   .rec-name { flex: 1; font: var(--g-caption); color: var(--g-fg); word-break: break-all; }
   .rec-date { font: var(--g-micro); color: var(--g-fg-subtle); flex: none; font-variant-numeric: var(--g-font-numeric); }
-  .rec-output { display: flex; align-items: center; gap: var(--g-space-4); padding: var(--g-space-3) 2px; flex-wrap: wrap; }
-  .rec-output .of { font-size: 13px; color: var(--g-brand); flex: none; }
-  .rec-output .rn { flex: 1; font: var(--g-caption); }
-  .rec-output code { display: block; font-family: var(--g-font-mono); font: var(--g-micro); font-family: var(--g-font-mono); color: var(--g-fg-subtle); margin-top: 2px; word-break: break-all; }
 
   footer { color: var(--g-fg-subtle); font: var(--g-micro); text-align: center; margin-top: var(--g-space-8); }
   footer code { font-family: var(--g-font-mono); }
@@ -1469,7 +1464,7 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
 
     // 상단 분류 칩(클릭 = 해당 폴더로)
     var chips = '<div class="rec-chips">' + order.map(function (k) {
-      return '<button class="rec-chip' + (cur === k ? ' sel' : '') + '" type="button" data-rec-folder="' + k + '">' +
+      return '<button class="rec-chip' + (cur === k ? ' sel' : '') + '" type="button" data-rec-folder="' + esc(k) + '">' +
         '<span class="n">' + (c[k] != null ? c[k] : 0) + '</span><span class="k">' + esc(FOLDER_LABEL[k]) + '</span></button>';
     }).join("") + '</div>';
 
@@ -1676,8 +1671,8 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
     var pb = target.closest("[data-project-back]");
     if (pb) { projectView = { mode: "list", id: null }; renderAll(); return; }
     // 기록 탭 폴더 선택
-    var rf = target.closest("[data-rec-folder]");
-    if (rf) { recView = { folder: rf.getAttribute("data-rec-folder") || "recent" }; renderAll(); return; }
+    var recBtn = target.closest("[data-rec-folder]");
+    if (recBtn) { recView = { folder: recBtn.getAttribute("data-rec-folder") || "recent" }; renderAll(); return; }
     // '파일로 이동'(data-goto) 은 순수 앵커 — 브라우저 기본 동작(새 탭)에 위임
     if (target.closest("[data-goto]")) return;
     // 펼침 토글 (할 일 / 아코디언 공용)

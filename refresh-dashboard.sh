@@ -102,10 +102,8 @@ def parse_xlsx(path):
                 root = ET.fromstring(z.read("xl/sharedStrings.xml"))
                 for si in root.findall(NS + "si"):
                     shared.append("".join(t.text or "" for t in si.iter(NS + "t")))
-            sheet = next((n for n in ("xl/worksheets/sheet1.xml",) if n in z.namelist()), None)
-            if not sheet:
-                names = sorted(n for n in z.namelist() if n.startswith("xl/worksheets/sheet"))
-                sheet = names[0] if names else None
+            names = sorted(n for n in z.namelist() if n.startswith("xl/worksheets/sheet"))
+            sheet = names[0] if names else None
             if not sheet: return None
             root = ET.fromstring(z.read(sheet))
             rows = []
