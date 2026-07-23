@@ -177,10 +177,10 @@ install.sh 도 마지막 단계에서 같은 스크립트를 호출한다.
 |---|---|---|
 | `roleFile` | string | `roles/<파일>.md` 매칭 키 (예: `"researcher"`) |
 | `role` | string | 역할 표시명 (예: `"리서처"`) |
-| `name` | string | 이름 (한국 이름, 호명은 성 제외) |
+| `name` | string | 영어 닉네임 (예: `"Luna"` — 호명은 닉네임 그대로) |
 | `mbti` | string | MBTI 4글자 (업무 스타일 표현 수단 — 심리 진단 아님) |
 | `style` | string | 업무 스타일 한 문단 (보고 톤 / 판단 습관 / 주의점) |
-| `avatar` | object | `{ "initial": 이름 첫 글자, "color": "#hex", "emoji": "🔍" }` |
+| `avatar` | object | `{ "initial": 닉네임 첫 글자, "color": "#hex", "emoji": "🔍" }` + 선택 키 `"image"`(캐릭터 이미지 파일 경로 — 있으면 대시보드가 우선 사용, 없으면 색+이니셜 배지) |
 | `appearance` | string | 외형 텍스트 묘사 (이미지 생성 없음 — 로드맵 소재) |
 | `relationships` | array | `{ "with": roleFile, "type": "tension"\|"synergy", "note": 서사 1줄, "effect": 절차 효과 1줄 }` |
 | `hiredAt` | string | 채용일 `YYYY-MM-DD` |

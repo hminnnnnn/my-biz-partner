@@ -335,6 +335,45 @@
   .acc-box { margin: var(--g-space-2) var(--g-space-2) 2px; padding: var(--g-space-4); background: var(--g-surface-sunken); border-radius: var(--g-radius-control); font: var(--g-caption); color: var(--g-fg-muted); }
 
   /* 우리 팀 (roster 역할) */
+  /* 팀 탭 — 스태프 (아바타 색은 계약 데이터값, 이니셜 글자는 --g-fg-on-brand 토큰) */
+  .team-summary { font: var(--g-title-3); letter-spacing: var(--g-track-title); margin-bottom: var(--g-space-3); }
+  .team-summary b { color: var(--g-brand-fg); }
+  .hint-line { font: var(--g-caption); color: var(--g-fg-subtle); margin-bottom: var(--g-space-5); }
+  .hire-note {
+    display: flex; gap: var(--g-space-3); align-items: flex-start;
+    background: var(--g-brand-soft); border-radius: var(--g-radius-card);
+    padding: var(--g-space-5) var(--g-space-6); margin-bottom: var(--g-space-6);
+    font: var(--g-body); color: var(--g-fg);
+  }
+  .avatar {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 24px; height: 24px; border-radius: var(--g-radius-full);
+    color: var(--g-fg-on-brand); font: var(--g-micro); font-weight: 700;
+    flex: none; overflow: hidden;
+  }
+  .avatar.lg { width: 44px; height: 44px; font: var(--g-body-str); }
+  .avatar.img { background: var(--g-surface-sunken); }
+  .avatar.img img { width: 100%; height: 100%; display: block; object-fit: cover; }
+  .avatar.vacant { background: var(--g-surface-sunken); border: 1.5px dashed var(--g-border-strong); color: var(--g-fg-subtle); }
+  .staff-top { display: flex; align-items: center; gap: var(--g-space-4); margin-bottom: var(--g-space-3); }
+  .staff-id { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .staff-name { font: var(--g-body-str); }
+  .staff-name.muted { color: var(--g-fg-subtle); }
+  .staff-role { font: var(--g-caption); color: var(--g-fg-muted); }
+  .mbti {
+    display: inline-block; vertical-align: middle; margin-left: var(--g-space-1);
+    font: var(--g-micro); font-weight: 700; letter-spacing: .03em;
+    background: var(--g-brand-soft); color: var(--g-brand-fg);
+    border-radius: var(--g-radius-full); padding: 1px var(--g-space-3);
+  }
+  .staff-head { display: flex; align-items: center; gap: var(--g-space-4); margin-bottom: var(--g-space-4); }
+  .staff-head .staff-name { font: var(--g-title-3); }
+  .staff-style { font: var(--g-body); color: var(--g-fg); margin: 0 0 var(--g-space-3); }
+  .staff-app { font: var(--g-caption); color: var(--g-fg-muted); margin: 0 0 var(--g-space-4); }
+  .rel-block { display: flex; flex-direction: column; gap: var(--g-space-2); margin-bottom: var(--g-space-5);
+    padding: var(--g-space-4) var(--g-space-5); background: var(--g-surface-sunken); border-radius: var(--g-radius-control); }
+  .rel-line { font: var(--g-caption); color: var(--g-fg); }
+  .rel-line .chip { margin-right: var(--g-space-2); }
   .roster { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--g-space-4); }
   .role-card {
     display: block; width: 100%; text-align: left; font: inherit; color: inherit; cursor: pointer;
@@ -578,6 +617,7 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
     { id: "home",    label: "홈",      ic: "◈" },
     { id: "todos",   label: "할 일",   ic: "☑" },
     { id: "project", label: "프로젝트", ic: "◐" },
+    { id: "team",    label: "팀",      ic: "◎" },
     { id: "kanban",  label: "칸반보드", ic: "☷" },
     { id: "records", label: "기록",    ic: "▤" }
   ];
@@ -636,7 +676,27 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
   var openSet = {}; // 펼침 상태 유지 (탭 재렌더 대비)
   var projectView = { mode: "list", id: null }; // 프로젝트 탭: 목록 ↔ 상세
   var ticketMap = {}; // 칸반 티켓 id → 모달 상세 모델 (renderKanban 에서 구성)
-  var roleMap = {};   // 역할 카드 key → 역할 모델 (rosterHTML 에서 구성)
+  var roleMap = {};   // 역할 카드 key → 역할 모델 (renderTeam 에서 구성)
+
+  // ── 스태프 (팀 모드 v3 — team.staff[], 없으면 채용 전) ──────
+  var staffList = (team && team.staff) || [];
+  var staffById = {}, staffByName = {}, staffByRole = {};
+  staffList.forEach(function (st) {
+    if (st.roleFile) staffById[st.roleFile] = st;
+    if (st.name) staffByName[st.name] = st;
+    if (st.role) staffByRole[st.role] = st;
+  });
+  function staffForRole(r) { return staffById[r.id] || staffByRole[r.name] || null; }
+  // 아바타: avatar.image(파일) 우선, 없으면 색+이니셜 배지 (색은 계약된 데이터값 — 코드 리터럴 아님)
+  function avatarHTML(st, fallbackName, size) {
+    var cls = "avatar" + (size ? " " + size : "");
+    var img = st && st.avatar && st.avatar.image;
+    if (img) return '<span class="' + cls + ' img"><img src="../' + esc(img) + '" alt=""></span>';
+    var initial = (st && st.avatar && st.avatar.initial) || (fallbackName ? String(fallbackName).charAt(0).toUpperCase() : "");
+    if (!initial) return "";
+    var color = (st && st.avatar && st.avatar.color) || "var(--g-brand)";
+    return '<span class="' + cls + '" style="background:' + esc(color) + '" aria-hidden="true">' + esc(initial) + '</span>';
+  }
 
   // 진행률 파생: progress 필드가 없으면 단계 인덱스로 계산(STATE_CONTRACT: 완료 단계 ÷ 전체 × 100)
   function phaseProgress(p) {
@@ -754,6 +814,7 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
     var badges = {
       todos: String(activeTodos.length),
       project: String(projectList.length),
+      team: staffList.length ? String(staffList.length) : "",
       kanban: String(km.waiting.length + km.doing.length + km.done.length),
       records: String(Object.keys(records.counts || {}).reduce(function (a, k) { return a + (records.counts[k] || 0); }, 0))
     };
@@ -764,7 +825,7 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
     var nav = TABS.map(function (tb) {
       var sel = tb.id === activeTab;
       var badge = "";
-      if (tb.id === "home") badge = "";
+      if (tb.id === "home" || (tb.id === "team" && !badges.team)) badge = "";  // 채용 전엔 팀 배지 없음
       else if (tb.id === "project") {
         // 주의 상태는 별도 점 대신 숫자 배지 자체를 경고 톤으로 — 배지가 2개면 숫자 열이 어긋난다
         var warn = proj && proj.health === "주의";
@@ -1045,7 +1106,7 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
     return '<div class="stack">' +
       '<section aria-labelledby="pl-a"><h2 class="card-title" id="pl-a">진행 중 <span class="count">· ' + active.length + '건</span></h2><div class="proj-cards">' + actHtml + '</div></section>' +
       '<section aria-labelledby="pl-d"><h2 class="card-title" id="pl-d">완료 <span class="count">· ' + doneP.length + '건</span></h2><div class="proj-cards proj-cards--full">' + doneHtml + '</div></section>' +
-      rosterHTML() + '</div>';
+      '</div>';
   }
 
   // notes/projects/<슬러그>/... 에서 슬러그 추출
@@ -1160,39 +1221,100 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
     return null;
   }
   // ── 우리 팀 (roster 역할 카드) — 프로젝트 목록 하단에 렌더 ───
-  function rosterHTML() {
+  function renderTeam() {
     var roles = rosterRoles;
     roleMap = {};
     if (!roles.length) {
-      return '<section class="card" aria-labelledby="team-h"><h2 class="card-title" id="team-h">우리 팀</h2>' +
-        '<div class="empty"><span class="em">🧑‍🤝‍🧑</span>역할군 정보가 아직 없어요. 프로젝트를 시작하면 필요한 역할이 편성돼요.</div></section>';
+      return panelWrap("team", "", '<section class="card" aria-labelledby="team-h"><h2 class="card-title" id="team-h">우리 팀</h2>' +
+        '<div class="empty"><span class="em">🧑‍🤝‍🧑</span>역할군 정보가 아직 없어요. 프로젝트를 시작하면 필요한 역할이 편성돼요.</div></section>');
     }
-    var roleCards = roles.map(function (r, i) {
+    // 소집 매칭: 진행 중 프로젝트의 members[].name ↔ staff[].name (설계된 연결키)
+    var projLive = (proj && proj.status !== "done") ? proj : null;
+    var dutyByName = {};
+    if (projLive) (projLive.members || []).forEach(function (m) { if (m.name) dutyByName[m.name] = m; });
+    var hired = staffList.length > 0;
+    var onDuty = hired ? staffList.filter(function (st) { return dutyByName[st.name]; }).length : 0;
+
+    var head = "";
+    if (!hired) {
+      head = '<div class="hire-note"><span aria-hidden="true">👋</span><span>아직 팀원을 채용하기 전이에요. ' +
+        '파트너에게 <b>"우리 팀 꾸려줘"</b>라고 말하면 내 사업에 맞는 이름·성향·케미를 가진 8명이 채용됩니다. ' +
+        '첫 프로젝트를 맡겨도("○○ 기획 진행해줘") 채용부터 자동으로 진행돼요. 이름·성향은 언제든 바꿀 수 있어요.</span></div>';
+    } else {
+      head = '<div class="team-summary">' + staffList.length + '명 재직 중 · ' +
+        ((onDuty && projLive) ? '<b>' + onDuty + '명 소집 중</b> — ' + esc(projLive.goal) : '지금은 전원 대기') + '</div>';
+      var allInitial = staffList.every(function (st) { return !(st.avatar && st.avatar.image); });
+      if (allInitial) head += '<div class="hint-line">아바타는 기본 이니셜 배지예요 — 파트너에게 "팀원 아바타 만들어줘"라고 하면 캐릭터 이미지로 업그레이드할 수 있어요.</div>';
+    }
+
+    var cards = roles.map(function (r, i) {
       var key = "ri-" + i;
       roleMap[key] = r;
-      var recentGoal = r.recentProject || roleRecentGoal(r.name); // 실데이터엔 recentProject 없음 → 이력 매칭
-      var recent = recentGoal
-        ? '<div class="role-recent">최근 <span class="pj">' + esc(recentGoal) + '</span></div>'
-        : '<div class="role-recent none">필요할 때 편성되는 역할</div>';
+      var st = staffForRole(r);
+      var duty = (st && dutyByName[st.name]) || null;
+      var stateLine;
+      if (duty && projLive) {
+        var ms = MSTAT_LABEL[duty.status] ? duty.status : "waiting";
+        stateLine = '<div class="role-recent">지금 <span class="pj">' + esc(projLive.goal) + '</span> <span class="mstat ' + ms + '">' + esc(MSTAT_LABEL[ms]) + '</span></div>';
+      } else {
+        var recentGoal = roleRecentGoal(r.name);
+        stateLine = recentGoal
+          ? '<div class="role-recent">최근 <span class="pj">' + esc(recentGoal) + '</span></div>'
+          : '<div class="role-recent none">필요할 때 소집돼요</div>';
+      }
       var outBadge = (r.outputsTotal != null) ? '<span class="role-out">산출 <b>' + r.outputsTotal + '</b></span>' : '';
-      var hint = r.content ? '<span class="role-more" aria-hidden="true">역할 카드 ›</span>' : '';
-      return '<button class="role-card' + (recentGoal ? '' : ' idle') + '" type="button" data-role="' + key + '"' +
-        ' aria-label="' + esc(r.name) + ' 역할 상세 보기">' +
-        '<div class="role-top"><span class="role-name">' + esc(r.name) + '</span>' + outBadge + '</div>' +
-        '<div class="role-focus">' + esc(r.focus || "") + '</div>' + recent + hint + '</button>';
+      var who = st
+        ? '<div class="staff-top">' + avatarHTML(st, st.name, "lg") +
+          '<div class="staff-id"><span class="staff-name">' + esc(st.name) +
+          (st.mbti ? ' <span class="mbti">' + esc(st.mbti) + '</span>' : '') + '</span>' +
+          '<span class="staff-role">' + esc(r.name) + '</span></div></div>'
+        : '<div class="staff-top"><span class="avatar lg vacant" aria-hidden="true">?</span>' +
+          '<div class="staff-id"><span class="staff-name muted">채용 대기</span>' +
+          '<span class="staff-role">' + esc(r.name) + '</span></div></div>';
+      var hint = '<span class="role-more" aria-hidden="true">' + (st ? '직원 카드 ›' : '역할 카드 ›') + '</span>';
+      return '<button class="role-card' + ((st || duty) ? '' : ' idle') + '" type="button" data-role="' + key + '"' +
+        ' aria-label="' + esc(st ? st.name + ' 직원 상세 보기' : r.name + ' 역할 상세 보기') + '">' +
+        who +
+        '<div class="role-focus">' + esc(r.focus || "") + (outBadge ? ' ' + outBadge : '') + '</div>' +
+        stateLine + hint + '</button>';
     }).join("");
-    return '<section class="card" aria-labelledby="team-h"><h2 class="card-title" id="team-h">우리 팀 <span class="count">· 상비 역할 ' + roles.length + '</span></h2>' +
-      '<div class="roster">' + roleCards + '</div></section>';
+
+    var grid = '<section class="card" aria-labelledby="team-h"><h2 class="card-title" id="team-h">우리 팀 <span class="count">· ' +
+      (hired ? '재직 ' + staffList.length + '명' : '상비 역할 ' + roles.length) + '</span></h2>' +
+      '<div class="roster">' + cards + '</div></section>';
+    return panelWrap("team",
+      hired ? "우리 회사에 재직 중인 팀원들이에요. 카드를 누르면 성향·관계·직무 기준을 볼 수 있어요."
+            : "프로젝트를 맡기면 필요한 팀원이 소집돼요.",
+      head + grid);
   }
-  // 역할 카드 클릭 → 모달 (역할 md 전문 렌더, 없으면 name/focus + 안내)
+  // 역할 카드 클릭 → 모달: 스태프가 있으면 "{이름} — {역할}" 직원 모달, 없으면 역할 md 모달
   function openRole(key) {
     var r = roleMap[key];
     if (!r) return;
-    var header = r.focus ? '<p class="hi-sub" style="margin-top:0;margin-bottom:var(--g-space-5)">' + esc(r.focus) + '</p>' : '';
+    var st = staffForRole(r);
+    var header = "";
+    if (st) {
+      var rel = (st.relationships || []).map(function (rl) {
+        var other = staffById[rl.with];
+        var nm = other ? other.name : rl.with;
+        return '<div class="rel-line"><span class="chip ' + (rl.type === "tension" ? "warn" : "accent") + '">' +
+          (rl.type === "tension" ? "긴장" : "합") + '</span> <b>' + esc(nm) + '</b>' +
+          (rl.note ? ' — ' + esc(rl.note) : '') + '</div>';
+      }).join("");
+      header = '<div class="staff-head">' + avatarHTML(st, st.name, "lg") +
+        '<div><div class="staff-name">' + esc(st.name) +
+        (st.mbti ? ' <span class="mbti">' + esc(st.mbti) + '</span>' : '') + '</div>' +
+        '<div class="staff-role">' + esc(r.name) + '</div></div></div>' +
+        (st.style ? '<p class="staff-style">' + esc(st.style) + '</p>' : '') +
+        (st.appearance ? '<p class="staff-app">' + esc(st.appearance) + '</p>' : '') +
+        (rel ? '<div class="rel-block">' + rel + '</div>' : '');
+    } else if (r.focus) {
+      header = '<p class="hi-sub" style="margin-top:0;margin-bottom:var(--g-space-5)">' + esc(r.focus) + '</p>';
+    }
     var body = r.content
       ? '<div class="md-body">' + renderMarkdown(r.content) + '</div>'
       : '<div class="empty" style="padding:var(--g-space-5)"><span class="em">🧑‍🤝‍🧑</span>이 역할의 상세 설명은 아직 준비되지 않았어요.<br>프로젝트에 편성되면 관점·판단기준이 채워집니다.</div>';
-    openModal(r.name, header + body);
+    openModal(st ? st.name + ' — ' + r.name : r.name, header + body);
   }
 
   // ── 칸반보드 탭 (읽기 전용 3열 · 티켓 클릭 = 모달 상세) ────
@@ -1305,7 +1427,7 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
       head + inner + '</section>';
   }
 
-  var RENDERERS = { home: renderHome, todos: renderTodos, project: renderProject, kanban: renderKanban, records: renderRecords };
+  var RENDERERS = { home: renderHome, todos: renderTodos, project: renderProject, team: renderTeam, kanban: renderKanban, records: renderRecords };
 
   function mainHTML() {
     var top = '<div class="top-refresh"><span class="upd-label">갱신 ' + relTime(s.updatedAt) + '</span>' +
