@@ -427,51 +427,75 @@
   .kempty .em { font-size: 20px; display: block; margin-bottom: var(--g-space-2); }
 
   /* ============================================================
-     기록 탭
+     기록 탭 — 2단: 폴더 토글 트리(좌) + 리딩 페인(주인공, 우)
      ============================================================ */
-  .rec-chips { display: grid; grid-template-columns: repeat(5, 1fr); gap: var(--g-space-2); margin-bottom: var(--g-space-6); }
-  .rec-chip {
-    text-align: center; background: var(--g-surface-sunken); border: 0; cursor: pointer;
-    font: inherit; color: inherit; border-radius: var(--g-radius-control); padding: var(--g-space-4) var(--g-space-2);
-    transition: background-color var(--g-motion-tap);
-  }
-  .rec-chip:hover { background: var(--g-layer-hover); }
-  .rec-chip.sel { background: var(--g-brand-soft); }
-  .rec-chip.sel .k { color: var(--g-brand-fg); font-weight: 600; }
-  /* 폴더 브라우저: 좌 내비 + 우 목록 */
+  /* 탭 패널은 스크린리더용 프로그램 포커스 대상 — 시각 링은 상호작용 요소에만 (패널 전체 테두리 방지) */
+  .view:focus, .view:focus-visible { outline: none; box-shadow: none; }
   .rec-split { display: grid; grid-template-columns: 1fr; gap: var(--g-space-5); align-items: start; }
-  .rec-nav { display: flex; flex-direction: column; gap: var(--g-space-1); }
-  .rec-nav-head { font: var(--g-micro); font-weight: 700; color: var(--g-fg-subtle); text-transform: uppercase; letter-spacing: .04em; margin: var(--g-space-4) 0 var(--g-space-2); padding-left: var(--g-space-3); }
-  .rec-nav-group { display: flex; flex-direction: column; gap: 2px; }
-  .rec-nav-item {
+
+  /* 좌: 폴더 트리 — 최근 · 노트 · 프로젝트 산출물을 한 레일에 */
+  .rec-tree { padding: var(--g-space-4); display: flex; flex-direction: column; gap: var(--g-space-1); }
+  .rec-group + .rec-group { margin-top: var(--g-space-3); padding-top: var(--g-space-3); border-top: 1px solid var(--g-border); }
+  .rec-nav-head { font: var(--g-micro); font-weight: 700; color: var(--g-fg-subtle); text-transform: uppercase; letter-spacing: .05em; padding: 0 var(--g-space-3) var(--g-space-2); }
+
+  /* 최근 — 출처(폴더) 라벨을 붙여 노트/산출물 혼재 가독성 문제 해소 */
+  .rec-recent { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 1px; }
+  .rec-recent-row {
     display: flex; align-items: center; gap: var(--g-space-3); width: 100%; text-align: left;
-    font: var(--g-caption); color: var(--g-fg-muted); background: transparent; border: 0; cursor: pointer;
-    border-radius: var(--g-radius-control); padding: var(--g-space-3) var(--g-space-3);
+    font: inherit; color: inherit; background: transparent; border: 0; cursor: pointer;
+    border-radius: var(--g-radius-control); padding: var(--g-space-2) var(--g-space-3);
+    transition: background-color var(--g-motion-tap), color var(--g-motion-tap);
+  }
+  .rec-recent-row:hover { background: var(--g-layer-hover); }
+  .rec-recent-row.sel { background: var(--g-brand-soft); }
+  .rec-recent-row.sel .rec-name, .rec-recent-row.sel .rec-src, .rec-recent-row.sel .rec-kind { color: var(--g-brand-fg); }
+  .rec-rmain { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+  .rec-src { font: var(--g-micro); color: var(--g-fg-subtle); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* 폴더 토글 행 (아코디언 — 클릭하면 하위 파일이 인라인으로 펼쳐진다) */
+  .rec-folder { display: flex; flex-direction: column; }
+  .rec-nav-item {
+    display: flex; align-items: center; gap: var(--g-space-2); width: 100%; text-align: left;
+    font: var(--g-body-str); color: var(--g-fg-muted); background: transparent; border: 0; cursor: pointer;
+    border-radius: var(--g-radius-control); padding: var(--g-space-3);
     transition: background-color var(--g-motion-tap), color var(--g-motion-tap);
   }
   .rec-nav-item:hover { background: var(--g-layer-hover); color: var(--g-fg); }
-  .rec-nav-item.sel { background: var(--g-brand-soft); color: var(--g-brand-fg); font-weight: 600; }
+  .rec-nav-item.open { color: var(--g-fg); }
+  .rec-nav-item.has-sel { color: var(--g-brand-fg); }
   .rec-nav-item .lbl { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .rec-nav-item .cnt { font: var(--g-micro); font-variant-numeric: var(--g-font-numeric); color: var(--g-fg-subtle); }
-  .rec-nav-item.sel .cnt { color: var(--g-brand-fg); }
-  .rec-kind { flex: none; color: var(--g-fg-subtle); font-size: var(--g-icon); }
-  /* 파일 목록 + 리딩 페인 (모달 아님 — 본문이 이 화면에서 바로 열린다) */
-  .rec-files { list-style: none; margin: 0; padding: 0; max-height: min(62vh, 560px); overflow-y: auto; }
+  .rec-nav-item .cnt { flex: none; font: var(--g-micro); font-variant-numeric: var(--g-font-numeric); color: var(--g-fg-subtle); }
+  .rec-tw { flex: none; color: var(--g-fg-subtle); font-size: var(--g-icon); line-height: 1; transition: transform var(--g-motion-state); }
+  .rec-nav-item.open .rec-tw { transform: rotate(90deg); }
+
+  /* 폴더 안 파일 목록 — 들여쓰기로 위계 표현 */
+  .rec-files { list-style: none; margin: 0 0 var(--g-space-2); padding: 0 0 0 var(--g-space-5); display: flex; flex-direction: column; gap: 1px; }
   .rec-file-row {
     display: flex; align-items: center; gap: var(--g-space-3); width: 100%; text-align: left;
-    font: inherit; color: inherit; background: transparent; border: 0; cursor: pointer;
-    border-radius: var(--g-radius-control); padding: var(--g-space-3);
-    transition: background-color var(--g-motion-tap);
+    font: var(--g-caption); color: var(--g-fg-muted); background: transparent; border: 0; cursor: pointer;
+    border-radius: var(--g-radius-control); padding: var(--g-space-2) var(--g-space-3);
+    transition: background-color var(--g-motion-tap), color var(--g-motion-tap);
   }
-  .rec-file-row:hover { background: var(--g-layer-hover); }
+  .rec-file-row:hover { background: var(--g-layer-hover); color: var(--g-fg); }
   .rec-file-row:active { background: var(--g-layer-press); }
   .rec-file-row.sel { background: var(--g-brand-soft); }
-  .rec-file-row.sel .rec-name { color: var(--g-brand-fg); font-weight: 600; }
-  .rec-file-row .rec-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; word-break: normal; }
-  .rec-read-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--g-space-4); flex-wrap: wrap; margin-bottom: var(--g-space-5); padding-bottom: var(--g-space-4); border-bottom: 1px solid var(--g-border); }
-  .rec-read-id { display: flex; align-items: baseline; gap: var(--g-space-4); min-width: 0; }
-  .rec-read .md-body { max-width: 72ch; }
-  /* 뷰어 확장: 표 · 웹뷰 */
+  .rec-file-row.sel .rec-name, .rec-file-row.sel .rec-kind { color: var(--g-brand-fg); font-weight: 600; }
+  .rec-kind { flex: none; color: var(--g-fg-subtle); font-size: var(--g-icon); line-height: 1; }
+  .rec-name { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .rec-date { flex: none; font: var(--g-micro); color: var(--g-fg-subtle); font-variant-numeric: var(--g-font-numeric); }
+
+  /* 우: 리딩 페인 (주인공 — 폭·타이포 우선) */
+  .rec-read { padding: var(--g-space-7) var(--g-space-8); min-height: min(60vh, 520px); }
+  .rec-read-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--g-space-5); flex-wrap: wrap; margin-bottom: var(--g-space-6); padding-bottom: var(--g-space-5); border-bottom: 1px solid var(--g-border); }
+  .rec-read-id { display: flex; align-items: flex-start; gap: var(--g-space-4); min-width: 0; }
+  .rec-read-kind { flex: none; color: var(--g-brand-fg); font-size: var(--g-icon); line-height: 1.4; }
+  .rec-read-tt { min-width: 0; }
+  .rec-read-title { font: var(--g-title-2); letter-spacing: var(--g-track-title); margin: 0; }
+  .rec-read-meta { display: block; font: var(--g-caption); color: var(--g-fg-subtle); margin-top: var(--g-space-2); font-variant-numeric: var(--g-font-numeric); }
+  .rec-read .md-body { max-width: 74ch; }
+  .rec-read .empty { padding: var(--g-space-9) var(--g-space-5); }
+
+  /* 뷰어 확장: 표 · 웹뷰 (보존) */
   .tbl-wrap { overflow-x: auto; border: 1px solid var(--g-border); border-radius: var(--g-radius-control); }
   .rec-table { border-collapse: collapse; width: 100%; font: var(--g-caption); }
   .rec-table th { text-align: left; font: var(--g-micro); font-weight: 700; color: var(--g-fg-muted);
@@ -479,12 +503,6 @@
   .rec-table td { padding: var(--g-space-3) var(--g-space-4); border-top: 1px solid var(--g-border); font-variant-numeric: var(--g-font-numeric); }
   .webview-bar { display: flex; align-items: center; justify-content: space-between; gap: var(--g-space-4); margin-bottom: var(--g-space-4); flex-wrap: wrap; }
   .webview { width: 100%; height: min(64vh, 560px); border: 1px solid var(--g-border); border-radius: var(--g-radius-control); background: var(--g-surface); }
-  .rec-chip .n { display: block; font: var(--g-title-2); font-variant-numeric: var(--g-font-numeric); }
-  .rec-chip .k { font: var(--g-micro); color: var(--g-fg-muted); }
-  .rec-item { display: flex; align-items: center; gap: var(--g-space-4); padding: var(--g-space-3) 2px; flex-wrap: wrap; }
-  .rec-item .acts { margin-left: auto; }
-  .rec-name { flex: 1; font: var(--g-caption); color: var(--g-fg); word-break: break-all; }
-  .rec-date { font: var(--g-micro); color: var(--g-fg-subtle); flex: none; font-variant-numeric: var(--g-font-numeric); }
 
   footer { color: var(--g-fg-subtle); font: var(--g-micro); text-align: center; margin-top: var(--g-space-8); }
   footer code { font-family: var(--g-font-mono); }
@@ -588,8 +606,8 @@
   /* ── 반응형 ─────────────────────────────────────────────── */
   @media (min-width: 640px) {
     .kpis { grid-template-columns: repeat(4, 1fr); }
-    .rec-split { grid-template-columns: 180px 300px minmax(0, 1fr); align-items: start; }
-    .rec-list { position: sticky; top: var(--g-space-5); }
+    .rec-split { grid-template-columns: minmax(236px, 284px) minmax(0, 1fr); align-items: start; }
+    .rec-tree { position: sticky; top: var(--g-space-5); max-height: calc(100dvh - var(--g-space-9)); overflow-y: auto; }
     .kpi:nth-child(n+3) { border-top: none; }
     .kpi:nth-child(even) { border-left: none; }
     .kpi + .kpi { border-left: 1px solid var(--g-border); }
@@ -618,7 +636,7 @@
   @media (max-width: 720px) {
     .main { padding: var(--g-space-5) var(--g-space-5) var(--g-space-8); }
     .card { padding: var(--g-card-p); }
-    .rec-chips { grid-template-columns: repeat(3, 1fr); }
+    .rec-read { padding: var(--g-card-p); }
     .m-role { min-width: 52px; }
   }
 </style>
@@ -718,7 +736,19 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
 
   // ── 상태(state) ────────────────────────────────────────────
   var activeTab = "home";
-  var recView = { folder: "recent", file: null };  // 기록 탭 폴더 선택: "recent" | notes 폴더키 | "proj:<슬러그>"
+  // 기록 탭: 폴더 토글 트리 상태. folder = 펼친 폴더(단일·아코디언, null=모두 접힘), file = 리딩 페인 파일.
+  // 진입 즉시 본문이 보이도록 최근 첫 파일(없으면 첫 비어있지 않은 폴더의 첫 파일)을 기본 선택하고 그 폴더를 편다.
+  var recView = (function () {
+    var rec = records.recent || [], file = rec.length ? rec[0].path : null;
+    if (!file) {
+      var tn = (records.tree || {}).notes || {}, ordr = ["inbox", "meetings", "customers", "ideas", "issues"];
+      for (var i = 0; i < ordr.length && !file; i++) { var a = tn[ordr[i]] || []; if (a.length) file = a[0].path; }
+      if (!file) { var tp = (records.tree || {}).projects || {}, ks = Object.keys(tp); for (var j = 0; j < ks.length && !file; j++) { var b = tp[ks[j]] || []; if (b.length) file = b[0].path; } }
+    }
+    var folder = null;
+    if (file) { var pm = file.match(/^notes\/projects\/([^/]+)\//); if (pm) folder = "proj:" + pm[1]; else { var nm = file.match(/^notes\/([^/]+)\//); folder = nm ? nm[1] : null; } }
+    return { folder: folder, file: file };
+  })();
   var openSet = {}; // 펼침 상태 유지 (탭 재렌더 대비)
   var projectView = { mode: "list", id: null }; // 프로젝트 탭: 목록 ↔ 상세
   var ticketMap = {}; // 칸반 티켓 id → 모달 상세 모델 (renderKanban 에서 구성)
@@ -775,6 +805,29 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
   }
 
   function basename(p) { if (!p) return ""; var x = String(p).replace(/\/+$/, ""); var a = x.split("/"); return a[a.length - 1] || x; }
+
+  // ── 기록 탭 폴더 헬퍼 (트리 토글·리딩 페인이 공유) ──
+  var REC_ORDER = ["inbox", "meetings", "customers", "ideas", "issues"];
+  // 경로 → 폴더 키: notes/projects/<슬러그>/… → "proj:<슬러그>", notes/<분류>/… → 분류 키
+  function recFolderKeyOf(p) {
+    if (!p) return null;
+    var m = String(p).match(/^notes\/projects\/([^/]+)\//);
+    if (m) return "proj:" + m[1];
+    var n = String(p).match(/^notes\/([^/]+)\//);
+    return (n && REC_ORDER.indexOf(n[1]) >= 0) ? n[1] : null;
+  }
+  function recFilesOf(key) {
+    var tr = records.tree || {};
+    if (key && key.indexOf("proj:") === 0) return (tr.projects || {})[key.slice(5)] || [];
+    return (tr.notes || {})[key] || [];
+  }
+  function recFirstFile(key) { var f = recFilesOf(key); return f.length ? f[0].path : null; }
+  // 폴더 키 → 사람이 읽는 출처 라벨 (최근·리딩 페인 메타)
+  function recSrcLabel(key) {
+    if (!key) return "";
+    if (key.indexOf("proj:") === 0) return "프로젝트 · " + key.slice(5).replace(/^\d{4}-\d{2}-/, "");
+    return FOLDER_LABEL[key] || key;
+  }
 
   // ── 간단 마크다운 렌더러 (제목·목록·굵게·인라인코드·코드블록·표) ──
   function renderMarkdown(src) {
@@ -1418,74 +1471,92 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
     return panelWrap("kanban", "오늘 일의 흐름을 한눈에 봐요. 읽기 전용이라 드래그는 없고, 티켓을 누르면 상세가 모달로 열려요.", board);
   }
 
-  // ── 기록 탭 ────────────────────────────────────────────────
+  // ── 기록 탭 (2단: 폴더 토글 트리 | 리딩 페인) ──────────────
   function renderRecords() {
-    var c = records.counts || {};
     var tree = records.tree || {};
     var tnotes = tree.notes || {};
     var tprojects = tree.projects || {};
-    var order = ["inbox", "meetings", "customers", "ideas", "issues"];
+    var slugs = Object.keys(tprojects);
+    var recent = (records.recent || []).slice(0, 5);
     var KIND_ICON = { md: "▤", table: "▦" };
 
-    // 좌: 폴더 내비
-    var cur = recView.folder;
-    function navItem(key, label, count) {
-      var sel = cur === key;
-      return '<button class="rec-nav-item' + (sel ? ' sel' : '') + '" type="button" data-rec-folder="' + esc(key) + '"' +
-        (sel ? ' aria-current="true"' : '') + '>' +
-        '<span class="lbl">' + esc(label) + '</span><span class="cnt">' + count + '</span></button>';
-    }
-    var nav = '<nav class="rec-nav" aria-label="기록 폴더">' +
-      '<div class="rec-nav-group">' + navItem("recent", "최근 기록", (records.recent || []).length) + '</div>' +
-      '<div class="rec-nav-head">노트</div><div class="rec-nav-group">' +
-      order.map(function (k) { return navItem(k, FOLDER_LABEL[k] || k, (tnotes[k] || []).length); }).join("") + '</div>';
-    var slugs = Object.keys(tprojects);
-    if (slugs.length) {
-      nav += '<div class="rec-nav-head">프로젝트 산출물</div><div class="rec-nav-group">' +
-        slugs.map(function (sl) {
-          return navItem("proj:" + sl, sl.replace(/^\d{4}-\d{2}-/, ""), (tprojects[sl] || []).length);
-        }).join("") + '</div>';
-    }
-    nav += '</nav>';
+    // 전 파일 메타 색인 (경로 → {title,date,kind,folderKey}) — 트리가 folder 를 확정
+    var fileMeta = {};
+    recent.forEach(function (f) { if (f && f.path && !fileMeta[f.path]) fileMeta[f.path] = { title: f.title, date: f.date, kind: f.kind, fk: recFolderKeyOf(f.path) }; });
+    REC_ORDER.forEach(function (k) { (tnotes[k] || []).forEach(function (f) { if (f && f.path) fileMeta[f.path] = { title: f.title, date: f.date, kind: f.kind, fk: k }; }); });
+    slugs.forEach(function (sl) { (tprojects[sl] || []).forEach(function (f) { if (f && f.path) fileMeta[f.path] = { title: f.title, date: f.date, kind: f.kind, fk: "proj:" + sl }; }); });
 
-    // 중: 선택 폴더의 파일 목록 (행 클릭 = 본문 열기)
-    var files, listTitle;
-    if (cur === "recent") { files = records.recent || []; listTitle = "최근 기록"; }
-    else if (cur.indexOf("proj:") === 0) { files = tprojects[cur.slice(5)] || []; listTitle = cur.slice(5); }
-    else { files = tnotes[cur] || []; listTitle = FOLDER_LABEL[cur] || cur; }
-
-    // 파일 자동 선택: 지정이 목록에 없으면 첫 파일 — 폴더에 들어오면 내용이 "바로" 보인다
+    // 선택 상태: file = 리딩 페인, openFolder = 펼친 폴더(단일·아코디언, null=접힘)
     var curFile = recView.file;
-    var inList = files.some(function (f) { return f.path === curFile; });
-    if (!inList) curFile = files.length ? files[0].path : null;
+    if (curFile && !fileMeta[curFile] && !contentByPath[curFile]) curFile = null; // 갱신으로 사라진 경로 방어
+    var openFolder = recView.folder;
+    var selFolder = curFile ? recFolderKeyOf(curFile) : null;
 
-    var listBody = files.length
-      ? '<ul class="rec-files">' + files.map(function (f) {
-          var sel = f.path === curFile;
-          return '<li><button class="rec-file-row' + (sel ? ' sel' : '') + '" type="button" data-rec-file="' + esc(f.path) + '"' +
-            (sel ? ' aria-current="true"' : '') + '>' +
+    // ── 좌: 폴더 토글 트리 ──
+    // 최근 (출처 라벨 포함) — 노트/산출물 혼재를 라벨로 구분
+    var recentHTML = "";
+    if (recent.length) {
+      recentHTML = '<div class="rec-group"><div class="rec-nav-head">최근</div><ul class="rec-recent">' +
+        recent.map(function (f) {
+          var sel = f.path === curFile, src = recSrcLabel(recFolderKeyOf(f.path));
+          return '<li><button class="rec-recent-row' + (sel ? ' sel' : '') + '" type="button" data-rec-file="' + esc(f.path) + '"' + (sel ? ' aria-current="true"' : '') + '>' +
             '<span class="rec-kind" aria-hidden="true">' + (KIND_ICON[f.kind] || "▤") + '</span>' +
-            '<span class="rec-name">' + esc(f.title) + '</span>' +
+            '<span class="rec-rmain"><span class="rec-name">' + esc(f.title) + '</span>' +
+              (src ? '<span class="rec-src">' + esc(src) + '</span>' : '') + '</span>' +
             '<span class="rec-date">' + esc(ymd(f.date)) + '</span></button></li>';
-        }).join("") + '</ul>'
-      : '<div class="empty"><span class="em">🗂️</span>이 폴더에는 아직 기록이 없어요.</div>';
-    var list = '<section class="card rec-list" aria-labelledby="rl-h">' +
-      '<h2 class="card-title" id="rl-h">' + esc(listTitle) + ' <span class="count">· ' + files.length + '건</span></h2>' +
-      listBody + '</section>';
+        }).join("") + '</ul></div>';
+    }
 
-    // 우: 리딩 페인 — 선택 파일의 본문을 모달 없이 그 자리에서 렌더
+    // 폴더 행 (헤더 = 토글, 펼치면 하위 파일 인라인)
+    function folderRow(key, label, files) {
+      var open = openFolder === key;
+      var hasSel = !open && selFolder === key; // 접혀 있어도 선택 파일이 이 폴더면 '여기 있음' 표시
+      var head = '<button class="rec-nav-item' + (open ? ' open' : '') + (hasSel ? ' has-sel' : '') + '" type="button" data-rec-folder="' + esc(key) + '" aria-expanded="' + (open ? 'true' : 'false') + '">' +
+        '<span class="rec-tw" aria-hidden="true">›</span>' +
+        '<span class="lbl">' + esc(label) + '</span>' +
+        '<span class="cnt">' + files.length + '</span></button>';
+      var kids = "";
+      if (open) {
+        kids = files.length
+          ? '<ul class="rec-files" role="group">' + files.map(function (f) {
+              var sel = f.path === curFile;
+              return '<li><button class="rec-file-row' + (sel ? ' sel' : '') + '" type="button" data-rec-file="' + esc(f.path) + '"' + (sel ? ' aria-current="true"' : '') + '>' +
+                '<span class="rec-kind" aria-hidden="true">' + (KIND_ICON[f.kind] || "▤") + '</span>' +
+                '<span class="rec-name">' + esc(f.title) + '</span>' +
+                '<span class="rec-date">' + esc(ymd(f.date)) + '</span></button></li>';
+            }).join("") + '</ul>'
+          : '<div class="empty" style="padding:var(--g-space-4) var(--g-space-3)"><span class="em">🗂️</span>아직 기록이 없어요.</div>';
+      }
+      return '<div class="rec-folder">' + head + kids + '</div>';
+    }
+
+    var notesHTML = '<div class="rec-group"><div class="rec-nav-head">노트</div>' +
+      REC_ORDER.map(function (k) { return folderRow(k, FOLDER_LABEL[k] || k, tnotes[k] || []); }).join("") + '</div>';
+    var projHTML = slugs.length
+      ? '<div class="rec-group"><div class="rec-nav-head">프로젝트 산출물</div>' +
+          slugs.map(function (sl) { return folderRow("proj:" + sl, sl.replace(/^\d{4}-\d{2}-/, ""), tprojects[sl] || []); }).join("") + '</div>'
+      : "";
+    var treeInner = recentHTML + notesHTML + projHTML;
+    var hasAny = recent.length || slugs.length || REC_ORDER.some(function (k) { return (tnotes[k] || []).length; });
+    if (!hasAny) treeInner = '<div class="empty"><span class="em">🗂️</span>아직 쌓인 기록이 없어요.<br>텔레그램에서 파트너에게 말을 걸면 여기에 채워져요.</div>';
+    var treeEl = '<aside class="card rec-tree" aria-label="기록 폴더">' + treeInner + '</aside>';
+
+    // ── 우: 리딩 페인 (주인공) — 본문을 모달 없이 그 자리에서 렌더 ──
     var read;
     if (curFile) {
       var entry = contentByPath[curFile] || {};
-      var meta = null;
-      files.some(function (f) { if (f.path === curFile) { meta = f; return true; } return false; });
+      var meta = fileMeta[curFile] || {};
+      var src = recSrcLabel(meta.fk), dt = meta.date ? ymd(meta.date) : "";
+      var metaLine = (src ? esc(src) : "") + (src && dt ? " · " : "") + (dt ? esc(dt) : "");
       var body = entry.table ? tableHTML(entry.table)
         : entry.content ? '<div class="md-body">' + renderMarkdown(entry.content) + '</div>'
         : '<div class="empty"><span class="em">📄</span>이 파일은 미리보기가 준비되지 않았어요.<br>‘파일로 이동’으로 원본을 여세요.</div>';
       read = '<section class="card rec-read" aria-labelledby="rd-h">' +
         '<div class="rec-read-head"><div class="rec-read-id">' +
-          '<h2 class="card-title" id="rd-h" style="margin-bottom:0">' + esc((meta && meta.title) || (entry.title || basename(curFile))) + '</h2>' +
-          (meta && meta.date ? '<span class="rec-date">' + esc(ymd(meta.date)) + '</span>' : '') + '</div>' +
+          '<span class="rec-read-kind" aria-hidden="true">' + (KIND_ICON[meta.kind] || "▤") + '</span>' +
+          '<div class="rec-read-tt"><h2 class="rec-read-title" id="rd-h">' + esc(meta.title || entry.title || basename(curFile)) + '</h2>' +
+            (metaLine ? '<span class="rec-read-meta">' + metaLine + '</span>' : '') + '</div>' +
+        '</div>' +
         '<span class="acts">' +
           '<a class="g-btn g-btn--secondary g-btn--sm" href="' + esc(curFile) + '" target="_blank" rel="noopener" data-goto>파일로 이동 ↗</a>' +
           '<button class="g-btn g-btn--secondary g-btn--sm" type="button" data-copy="' + esc(curFile) + '" aria-label="경로 복사">⧉</button>' +
@@ -1494,14 +1565,8 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
       read = '<section class="card rec-read"><div class="empty"><span class="em">📄</span>왼쪽에서 파일을 고르면 여기에 내용이 바로 보여요.</div></section>';
     }
 
-    // 상단 분류 칩(빠른 이동)
-    var chips = '<div class="rec-chips">' + order.map(function (k) {
-      return '<button class="rec-chip' + (cur === k ? ' sel' : '') + '" type="button" data-rec-folder="' + esc(k) + '">' +
-        '<span class="n">' + (c[k] != null ? c[k] : 0) + '</span><span class="k">' + esc(FOLDER_LABEL[k]) + '</span></button>';
-    }).join("") + '</div>';
-
-    var content = chips + '<div class="rec-split">' + nav + list + read + '</div>';
-    return panelWrap("records", "파트너와 쌓아온 노트·산출물이에요. 파일을 고르면 내용이 이 화면에서 바로 열려요.", content);
+    var content = '<div class="rec-split">' + treeEl + read + '</div>';
+    return panelWrap("records", "왼쪽 폴더를 열어 파일을 고르면 내용이 오른쪽에서 바로 열려요.", content);
   }
 
   // 패널 래퍼
@@ -1699,11 +1764,22 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
     if (po) { projectView = { mode: "detail", id: po.getAttribute("data-project-open") }; renderAll(); return; }
     var pb = target.closest("[data-project-back]");
     if (pb) { projectView = { mode: "list", id: null }; renderAll(); return; }
-    // 기록 탭 폴더 선택
+    // 기록 탭 폴더 토글 (아코디언 단일 펼침): 열려 있으면 접고, 아니면 펼치며 첫 파일 자동 선택(즉시 본문)
     var recBtn = target.closest("[data-rec-folder]");
-    if (recBtn) { recView = { folder: recBtn.getAttribute("data-rec-folder") || "recent", file: null }; renderAll(); return; }
+    if (recBtn) {
+      var fkey = recBtn.getAttribute("data-rec-folder") || "";
+      if (recView.folder === fkey) { recView.folder = null; } // 접기 — 리딩 페인은 유지
+      else { recView.folder = fkey; var ff = recFirstFile(fkey); if (ff) recView.file = ff; }
+      renderAll(); return;
+    }
+    // 파일 선택 (트리 파일행·최근 항목 공용) → 리딩 페인 교체 + 담긴 폴더 자동 펼침
     var recFile = target.closest("[data-rec-file]");
-    if (recFile) { recView.file = recFile.getAttribute("data-rec-file"); renderAll(); return; }
+    if (recFile) {
+      var fp = recFile.getAttribute("data-rec-file");
+      recView.file = fp;
+      var fk = recFolderKeyOf(fp); if (fk) recView.folder = fk;
+      renderAll(); return;
+    }
     // '파일로 이동'(data-goto) 은 순수 앵커 — 브라우저 기본 동작(새 탭)에 위임
     if (target.closest("[data-goto]")) return;
     // 펼침 토글 (할 일 / 아코디언 공용)
