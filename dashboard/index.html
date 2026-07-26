@@ -726,9 +726,276 @@
   /* 키보드 이동 중인 행 — 마우스 hover 와 구분되는 표시 */
   .kbd-here { box-shadow: inset 2px 0 0 0 var(--g-brand); }
 
+  /* ============================================================
+     W20 · 2단계 — 시각화 프리미티브 · 필터 · 타임라인 · 백링크
+     ------------------------------------------------------------
+     원칙(dataviz): 마크는 얇게 · 단일 계열엔 범례 없음 · 텍스트는 텍스트 토큰(계열색 금지) ·
+     순차 스케일은 한 색조 명도 단계 · 이중 축 금지 · 호버 레이어는 기본 제공.
+     색은 전부 --g-* 토큰의 color-mix 로만 만든다(리터럴 색 0).
+     ============================================================ */
+
+  /* ── 공용 호버 툴팁 (스파크라인·막대·히트맵 공용, 위임 1개) ── */
+  .viz-tip[hidden] { display: none !important; }
+  .viz-tip {
+    position: fixed; z-index: var(--g-z-toast); pointer-events: none;
+    background: var(--g-surface-inverse); color: var(--g-bg);
+    font: var(--g-micro); padding: var(--g-space-2) var(--g-space-3);
+    border-radius: var(--g-radius-1); box-shadow: var(--g-elev-2);
+    max-width: 260px; white-space: nowrap;
+  }
+
+  /* ── 마이크로 막대 (분포 — KPI 칩 안) ────────────────────── */
+  .mbars { display: flex; align-items: flex-end; gap: 2px; height: 22px; margin-top: var(--g-space-2); }
+  .mbar {
+    flex: 1; min-width: 3px; border-radius: 2px 2px 0 0;   /* 마이크로 스케일: 4px 라운드는 폭을 넘김 */
+    background: var(--g-brand); opacity: .85;
+    align-self: flex-end; transition: opacity var(--g-motion-tap);
+  }
+  .mbar.zero { background: var(--g-border); opacity: 1; }
+  .mbar.warnb { background: var(--g-critical); }
+  .mbar:hover { opacity: 1; }
+  .mb-axis { display: flex; gap: 2px; margin-top: 2px; }
+  .mb-axis span { flex: 1; min-width: 3px; font: var(--g-micro); color: var(--g-fg-subtle); text-align: center; font-size: 9px; }
+
+  /* ── 스파크라인 ─────────────────────────────────────────── */
+  .spark { display: block; width: 100%; height: 26px; margin-top: var(--g-space-2); overflow: visible; }
+  .spark .ln { fill: none; stroke: var(--g-brand); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+  .spark .ar { fill: var(--g-brand); opacity: .1; stroke: none; }
+  .spark .dt { fill: var(--g-brand); stroke: var(--g-surface); stroke-width: 2; }  /* 서피스 링 */
+  .spark .hz { stroke: var(--g-border); stroke-width: 1; }
+
+  /* ── 단계 분절 미터 ──────────────────────────────────────
+     막대 높이로 그리면 '진행률' 로 오독된다(실측 지적). 단계는 순서 있는 칸이므로
+     같은 높이 · 같은 폭의 분절로 그리고 2px 서피스 갭으로 칸을 나눈다(dataviz 스페이서 규칙). */
+  .pmeter { display: flex; gap: 2px; height: 6px; margin-top: var(--g-space-3); }
+  .pmeter i { flex: 1; border-radius: 2px; background: var(--g-surface-sunken); }
+  .pmeter i.on { background: color-mix(in oklab, var(--g-brand) 55%, var(--g-surface-sunken)); }
+  .pmeter i.cur { background: var(--g-brand); }
+  .pmeter-lbl { font: var(--g-micro); color: var(--g-fg-subtle); margin-top: var(--g-space-2); display: block; }
+
+  /* ── KPI 4요소 (라벨·값·델타·추이) ─────────────────────── */
+  .kpi-delta { display: inline-flex; align-items: center; gap: 2px; font: var(--g-micro); font-weight: 700; }
+  .kpi-delta.up { color: var(--g-positive); }
+  .kpi-delta.down { color: var(--g-critical); }
+  .kpi-delta.flat { color: var(--g-fg-subtle); }
+  .kpi-viz { margin-top: auto; }
+
+  /* ── 히트맵 (기록이 쌓인 흐름) ──────────────────────────── */
+  .heat { display: flex; gap: 3px; align-items: flex-start; overflow-x: auto; padding-bottom: var(--g-space-1); }
+  .heat-col { display: flex; flex-direction: column; gap: 3px; flex: none; }
+  .heat-c {
+    width: 13px; height: 13px; border-radius: 3px; flex: none;
+    background: var(--g-surface-sunken); border: 1px solid transparent;
+  }
+  .heat-c.l1 { background: color-mix(in oklab, var(--g-brand) 22%, var(--g-surface-sunken)); }
+  .heat-c.l2 { background: color-mix(in oklab, var(--g-brand) 45%, var(--g-surface-sunken)); }
+  .heat-c.l3 { background: color-mix(in oklab, var(--g-brand) 70%, var(--g-surface-sunken)); }
+  .heat-c.l4 { background: var(--g-brand); }
+  .heat-c.today { border-color: var(--g-fg-muted); }
+  .heat-c.void { background: transparent; }
+  .heat-wrap { display: flex; gap: var(--g-space-3); align-items: flex-start; }
+  .heat-days { display: flex; flex-direction: column; gap: 3px; flex: none; padding-top: 0; }
+  .heat-days span { height: 13px; font: var(--g-micro); font-size: 9px; line-height: 13px; color: var(--g-fg-subtle); }
+  .heat-legend { display: flex; align-items: center; gap: var(--g-space-2); font: var(--g-micro); color: var(--g-fg-subtle); margin-top: var(--g-space-3); }
+  .heat-legend .heat-c { width: 11px; height: 11px; }
+  .heat-sum { font: var(--g-caption); color: var(--g-fg-muted); margin-top: var(--g-space-3); }
+  .heat-sum b { color: var(--g-fg); font-variant-numeric: var(--g-font-numeric); }
+
+  /* ── 이번 주 시간축 (기한이 언제 몰리는지) ──────────────── */
+  .wtl { margin-top: var(--g-space-2); }
+  .wtl-grid { display: grid; gap: var(--g-space-2); grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); }
+  .wtl-day {
+    display: flex; flex-direction: column; gap: var(--g-space-2); align-items: stretch;
+    padding: var(--g-space-2) var(--g-space-1); border-radius: var(--g-radius-control);
+    background: var(--g-surface-sunken); min-height: 76px; border: 1px solid transparent;
+  }
+  .wtl-day.is-today { background: var(--g-brand-soft); border-color: color-mix(in oklab, var(--g-brand) 35%, transparent); }
+  .wtl-day.is-past { background: var(--g-critical-soft); }
+  .wtl-day.weekend { background: color-mix(in oklab, var(--g-surface-sunken) 60%, var(--g-bg)); }
+  .wtl-d { font: var(--g-micro); color: var(--g-fg-subtle); text-align: center; }
+  .wtl-d b { display: block; font: var(--g-label); color: var(--g-fg); font-variant-numeric: var(--g-font-numeric); }
+  .wtl-day.is-today .wtl-d b { color: var(--g-brand); }
+  .wtl-pips { display: flex; flex-wrap: wrap; gap: 2px; justify-content: center; align-content: flex-start; }
+  .wtl-pip {
+    width: 8px; height: 8px; border-radius: 50%; background: var(--g-brand);
+    border: 0; padding: 0; cursor: pointer; box-shadow: 0 0 0 2px var(--g-surface);
+  }
+  .wtl-pip.od { background: var(--g-critical); }
+  .wtl-pip.iss { background: var(--g-warning); }
+  .wtl-pip:focus-visible { outline: none; box-shadow: var(--g-focus-ring); }
+  .wtl-legend { display: flex; flex-wrap: wrap; gap: var(--g-space-4); margin-top: var(--g-space-3); font: var(--g-micro); color: var(--g-fg-muted); }
+  .wtl-legend i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
+  .wtl-legend i.k-rem { background: var(--g-brand); }
+  .wtl-legend i.k-iss { background: var(--g-warning); }
+  .wtl-legend i.k-od { background: var(--g-critical); }
+
+  /* ── 필터바 (할 일 · 칸반 · 기록 공용) ──────────────────── */
+  .fbar {
+    display: flex; flex-wrap: wrap; align-items: center; gap: var(--g-space-3);
+    margin-bottom: var(--g-space-5);
+  }
+  .fgroup { display: inline-flex; background: var(--g-surface-sunken); border: 1px solid var(--g-border); border-radius: var(--g-radius-control); padding: 2px; gap: 2px; }
+  .fchip {
+    font: var(--g-caption); color: var(--g-fg-muted); background: transparent; border: 0;
+    border-radius: var(--g-radius-1); padding: var(--g-space-2) var(--g-space-4); cursor: pointer;
+    transition: background-color var(--g-motion-tap), color var(--g-motion-tap);
+    white-space: nowrap;
+  }
+  .fchip:hover { background: var(--g-layer-hover); color: var(--g-fg); }
+  .fchip[aria-pressed="true"] { background: var(--g-surface-raised); color: var(--g-fg); box-shadow: var(--g-elev-1); font-weight: 600; }
+  .fchip .n { font-variant-numeric: var(--g-font-numeric); color: var(--g-fg-subtle); margin-left: 4px; }
+  .fchip[aria-pressed="true"] .n { color: var(--g-brand); }
+  .fsearch { position: relative; flex: 1; min-width: 160px; max-width: 320px; }
+  .fsearch input {
+    width: 100%; font: var(--g-caption); color: var(--g-fg);
+    background: var(--g-surface-sunken); border: 1px solid var(--g-border);
+    border-radius: var(--g-radius-control); padding: var(--g-space-3) var(--g-space-8) var(--g-space-3) var(--g-space-4);
+    transition: border-color var(--g-motion-state), box-shadow var(--g-motion-state);
+  }
+  .fsearch input:focus-visible { border-color: var(--g-brand); box-shadow: var(--g-focus-ring); outline: none; }
+  .fsearch .fx {
+    position: absolute; right: var(--g-space-2); top: 50%; transform: translateY(-50%);
+    background: transparent; border: 0; color: var(--g-fg-subtle); cursor: pointer;
+    font: var(--g-caption); padding: var(--g-space-1) var(--g-space-2); border-radius: var(--g-radius-1);
+  }
+  .fsearch .fx:hover { color: var(--g-fg); background: var(--g-layer-hover); }
+  .fresult { font: var(--g-caption); color: var(--g-fg-muted); margin-left: auto; white-space: nowrap; }
+  .fresult b { color: var(--g-fg); font-variant-numeric: var(--g-font-numeric); }
+  mark.hit { background: color-mix(in oklab, var(--g-warning) 32%, transparent); color: inherit; border-radius: 2px; padding: 0 1px; }
+
+  /* ── 접힘 섹션 (완료 목록 등) ───────────────────────────── */
+  .fold { margin-top: var(--g-space-5); }
+  .fold-h {
+    display: flex; align-items: center; gap: var(--g-space-3); width: 100%; text-align: left;
+    font: var(--g-label); color: var(--g-fg-muted); background: transparent;
+    border: 0; border-top: 1px solid var(--g-border); cursor: pointer;
+    padding: var(--g-space-4) var(--g-space-1); transition: color var(--g-motion-tap);
+  }
+  .fold-h:hover { color: var(--g-fg); }
+  .fold-h .tw { color: var(--g-fg-subtle); transition: transform var(--g-motion-state); display: inline-block; }
+  .fold-h[aria-expanded="true"] .tw { transform: rotate(90deg); }
+  .fold-h .n { margin-left: auto; font: var(--g-micro); color: var(--g-fg-subtle); font-variant-numeric: var(--g-font-numeric); }
+  .fold-b { padding-top: var(--g-space-2); }
+  .todo.is-done .todo-title { color: var(--g-fg-subtle); text-decoration: line-through; }
+
+  /* ── 관련 링크 칩 (교차 연결 — 탐색기가 못 하는 것) ─────── */
+  .xlinks { display: flex; flex-wrap: wrap; gap: var(--g-space-2); margin-top: var(--g-space-3); }
+  .xlink {
+    display: inline-flex; align-items: center; gap: var(--g-space-2);
+    font: var(--g-micro); color: var(--g-fg-muted);
+    background: var(--g-surface-sunken); border: 1px solid var(--g-border);
+    border-radius: var(--g-radius-1); padding: var(--g-space-1) var(--g-space-3);
+    cursor: pointer; max-width: 100%; transition: border-color var(--g-motion-state), color var(--g-motion-state);
+  }
+  .xlink:hover { border-color: var(--g-border-strong); color: var(--g-fg); }
+  .xlink .ic { color: var(--g-fg-subtle); flex: none; }
+  .xlink .tx { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .xlink-h { font: var(--g-micro); font-weight: 700; color: var(--g-fg-subtle); text-transform: uppercase; letter-spacing: .04em; margin-top: var(--g-space-4); }
+
+  /* ── 인라인 본문 발췌 (할 일 상세 — 기록 탭 리딩 문법 통일) ── */
+  .snip {
+    font: var(--g-caption); color: var(--g-fg-muted); background: var(--g-surface-sunken);
+    border-left: 2px solid var(--g-border-strong); border-radius: 0 var(--g-radius-1) var(--g-radius-1) 0;
+    padding: var(--g-space-3) var(--g-space-4); margin-top: var(--g-space-3);
+    white-space: pre-wrap; overflow-wrap: anywhere;
+  }
+  .snip.empty-snip { color: var(--g-fg-subtle); font-style: normal; }
+
+  /* ── 프로젝트: 단계 타임라인 (로그 결합) ────────────────── */
+  .ptl { list-style: none; margin: var(--g-space-5) 0 0; padding: 0; }
+  .ptl > li { position: relative; padding: 0 0 var(--g-space-5) var(--g-space-7); }
+  .ptl > li::before {
+    content: ""; position: absolute; left: 5px; top: 16px; bottom: 0; width: 1px; background: var(--g-border);
+  }
+  .ptl > li:last-child::before { display: none; }
+  .ptl .nd {
+    position: absolute; left: 0; top: 5px; width: 11px; height: 11px; border-radius: 50%;
+    background: var(--g-surface); border: 2px solid var(--g-border-strong); box-sizing: border-box;
+  }
+  .ptl li.past .nd { background: var(--g-brand); border-color: var(--g-brand); }
+  .ptl li.active .nd { background: var(--g-surface); border-color: var(--g-brand); box-shadow: 0 0 0 3px var(--g-brand-soft); }
+  .ptl .ph { font: var(--g-body-str); color: var(--g-fg); }
+  .ptl li.future .ph { color: var(--g-fg-subtle); }
+  .ptl .phm { font: var(--g-micro); color: var(--g-fg-subtle); margin-left: var(--g-space-3); }
+  .ptl .plog { list-style: none; margin: var(--g-space-2) 0 0; padding: 0; }
+  .ptl .plog li { display: flex; gap: var(--g-space-3); font: var(--g-caption); color: var(--g-fg-muted); padding: 2px 0; }
+  .ptl .plog .lt { flex: none; color: var(--g-fg-subtle); font-variant-numeric: var(--g-font-numeric); min-width: 42px; }
+  /* ── 프로젝트 목록 카드: 카드 안에서 판단이 끝나게 ─────── */
+  .pc-note {
+    font: var(--g-caption); color: var(--g-fg-muted); margin-top: var(--g-space-4);
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  }
+  .pc-line { display: flex; align-items: center; gap: var(--g-space-3); margin-top: var(--g-space-3); flex-wrap: wrap; }
+  .pc-avs { display: inline-flex; }
+  .pc-avs > * { margin-left: -6px; box-shadow: 0 0 0 2px var(--g-surface); }
+  .pc-avs > *:first-child { margin-left: 0; }
+  .pc-k { font: var(--g-micro); color: var(--g-fg-muted); }
+  .pc-k.dim { color: var(--g-fg-subtle); }
+  .proj-card .pmeter { margin-top: var(--g-space-4); }
+
+  .match-why { font: var(--g-micro); color: var(--g-fg-subtle); margin-top: var(--g-space-2); }
+  .match-why code { font-size: inherit; }
+  .out-snip { font: var(--g-micro); color: var(--g-fg-subtle); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+  .member .m-who { display: inline-flex; align-items: center; gap: var(--g-space-2); flex: none; }
+
+  /* ── 팀: 관계 지도 + 편성 이력 ──────────────────────────── */
+  .relmap { width: 100%; max-width: 520px; margin: 0 auto; display: block; overflow: visible; }
+  .relmap .edge { stroke-width: 1.5; fill: none; }
+  .relmap .edge.fit { stroke: var(--g-positive); }
+  .relmap .edge.tension { stroke: var(--g-critical); stroke-dasharray: 3 3; }
+  .relmap .node { fill: var(--g-surface-raised); stroke: var(--g-border-strong); stroke-width: 1.5; }
+  .relmap .node.duty { stroke: var(--g-brand); stroke-width: 2.5; }
+  .relmap text { fill: var(--g-fg-muted); font-size: 10px; font-family: inherit; }
+  .relmap .nm { fill: var(--g-fg); font-weight: 600; }
+  .rel-legend { display: flex; gap: var(--g-space-5); justify-content: center; margin-top: var(--g-space-3); font: var(--g-micro); color: var(--g-fg-muted); }
+  .rel-legend i { display: inline-block; width: 14px; height: 0; border-top: 2px solid; margin-right: 4px; vertical-align: middle; }
+  .rel-legend i.fit { border-color: var(--g-positive); }
+  .rel-legend i.tension { border-color: var(--g-critical); border-top-style: dashed; }
+  .hist-list { list-style: none; margin: 0; padding: 0; }
+  .hist-list li { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--g-space-2) var(--g-space-3); padding: var(--g-space-3) 0; border-top: 1px solid var(--g-border); font: var(--g-caption); }
+  .hist-list li:first-child { border-top: 0; }
+  .hist-list .hg { color: var(--g-fg); font-weight: 600; }
+  .hist-list .hd { color: var(--g-fg-subtle); font-variant-numeric: var(--g-font-numeric); flex: none; }
+  .hist-list .hm { color: var(--g-fg-muted); margin-left: auto; text-align: right; }
+  /* 채용 전 역할 카드: '?' 벽 대신 직무가 무엇을 만드는지 */
+  .role-card .role-pre { font: var(--g-micro); color: var(--g-fg-subtle); margin-top: var(--g-space-2); }
+  .role-card .role-pre b { color: var(--g-fg-muted); font-weight: 600; }
+
+  /* ── 칸반: 열 독립 스크롤 · 부하 표시 ───────────────────── */
+  .kcol-head .kload { margin-left: var(--g-space-2); font: var(--g-micro); color: var(--g-critical); font-weight: 700; }
+  .kcol.hot .kcol-head { color: var(--g-critical); }
+  .kcards { max-height: min(62dvh, 640px); overflow-y: auto; overscroll-behavior: contain; }
+  .kcards::-webkit-scrollbar { width: 8px; }
+  .kcards::-webkit-scrollbar-thumb { background: var(--g-border-strong); border-radius: 4px; }
+
+  /* ── 기록: TOC · 백링크 · 표 정렬 ───────────────────────── */
+  .rec-read-body { display: grid; gap: var(--g-space-6); }
+  @media (min-width: 1000px) { .rec-read-body.has-toc { grid-template-columns: minmax(0, 1fr) 172px; align-items: start; } }
+  .toc { position: sticky; top: var(--g-space-5); font: var(--g-caption); }
+  .toc-h { font: var(--g-micro); font-weight: 700; color: var(--g-fg-subtle); text-transform: uppercase; letter-spacing: .04em; margin-bottom: var(--g-space-3); }
+  .toc ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 1px; }
+  .toc a {
+    display: block; color: var(--g-fg-muted); text-decoration: none;
+    padding: var(--g-space-2) var(--g-space-3); border-radius: var(--g-radius-1);
+    border-left: 2px solid var(--g-border); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    transition: color var(--g-motion-tap), background-color var(--g-motion-tap);
+  }
+  .toc a:hover { color: var(--g-fg); background: var(--g-layer-hover); }
+  .toc a.d2 { padding-left: var(--g-space-5); font: var(--g-micro); }
+  .rec-tbl-bar { display: flex; align-items: center; gap: var(--g-space-3); margin-bottom: var(--g-space-3); }
+  .rec-table th.srt { cursor: pointer; user-select: none; white-space: nowrap; }
+  .rec-table th.srt:hover { color: var(--g-fg); }
+  .rec-table th .ar { color: var(--g-brand); margin-left: 2px; }
+  .rec-hitline { font: var(--g-caption); color: var(--g-fg-muted); margin-bottom: var(--g-space-3); }
+  .rec-search-empty { padding: var(--g-space-6) var(--g-space-4); }
+
   /* ── 인쇄: 회의 자료로 뽑을 수 있게 ────────────────────── */
   @media print {
-    .sidebar, .top-refresh, .searchbtn, .cmdk-backdrop, .modal-backdrop, .toast, footer { display: none !important; }
+    .sidebar, .top-refresh, .searchbtn, .cmdk-backdrop, .modal-backdrop, .toast, footer,
+    .fbar, .viz-tip, .toc { display: none !important; }
+    .fold-b { display: block !important; }
+    .kcards { max-height: none !important; overflow: visible !important; }
+    .rec-read-body.has-toc { grid-template-columns: 1fr !important; }
     .app { display: block; }
     .main { padding: 0; --shell-max: 100%; }
     .main-inner { max-width: 100%; }
@@ -819,6 +1086,10 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
 </div>
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<!-- 시각화 호버 툴팁 (스파크라인·막대·히트맵·시간축 공용 — 위임 핸들러 1개가 [data-tip] 을 읽는다).
+     닫힘 = [hidden] → display:none (클릭 삼킴 방지 규약과 동일 처리). -->
+<div class="viz-tip" id="viz-tip" hidden role="status" aria-live="off"></div>
 
 <!-- 상태 파일(파생본). 이 파일 하나만 읽는다 — STATE_CONTRACT 4 -->
 <script src="../state/dashboard-data.js"></script>
@@ -920,6 +1191,11 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
   var projectView = { mode: "list", id: null }; // 프로젝트 탭: 목록 ↔ 상세
   var ticketMap = {}; // 칸반 티켓 id → 모달 상세 모델 (renderKanban 에서 구성)
   var roleMap = {};   // 역할 카드 key → 역할 모델 (renderTeam 에서 구성)
+  // W20 2단계 상태 — 필터·검색·정렬·탭 간 점프
+  var kanFilter = "all";                    // 칸반 열 필터: all | reminder | issue | member
+  var recQuery = "";                        // 기록 탭 전문 검색어
+  var tableSort = { col: -1, dir: 1 };      // 기록 탭 표 정렬 (열 index, 1=오름)
+  var pendingTodo = null;                   // 탭 이동 후 펼쳐서 보여줄 할 일 index
 
   // ── 스태프 (팀 모드 v3 — team.staff[], 없으면 채용 전) ──────
   var staffList = (team && team.staff) || [];
@@ -997,8 +1273,9 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
   }
 
   // ── 간단 마크다운 렌더러 (제목·목록·굵게·인라인코드·코드블록·표) ──
-  function renderMarkdown(src) {
-    var lines = String(src || "").replace(/\r\n/g, "\n").split("\n"), out = [], i = 0;
+  // collect(선택): 목차용으로 헤딩을 담아 보낸다 — [{lv, text, id}]. 헤딩엔 앵커 id 를 붙인다.
+  function renderMarkdown(src, collect) {
+    var lines = String(src || "").replace(/\r\n/g, "\n").split("\n"), out = [], i = 0, hn = 0;
     function inl(t) {
       t = esc(t);
       t = t.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
@@ -1012,7 +1289,12 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
       var ln = lines[i];
       if (/^```/.test(ln)) { var buf = []; i++; while (i < lines.length && !/^```/.test(lines[i])) { buf.push(lines[i]); i++; } i++; out.push('<pre class="md-pre"><code>' + esc(buf.join("\n")) + "</code></pre>"); continue; }
       var h = ln.match(/^(#{1,6})\s+(.*)$/);
-      if (h) { var lv = h[1].length; out.push("<h" + lv + ' class="md-h md-h' + lv + '">' + inl(h[2]) + "</h" + lv + ">"); i++; continue; }
+      if (h) {
+        var lv = h[1].length, hid = "mdh-" + (++hn);
+        if (collect) collect.push({ lv: lv, text: h[2].replace(/[*`]/g, "").trim(), id: hid });
+        out.push("<h" + lv + ' class="md-h md-h' + lv + '" id="' + hid + '">' + inl(h[2]) + "</h" + lv + ">");
+        i++; continue;
+      }
       if (/^\s*\|.*\|\s*$/.test(ln) && i + 1 < lines.length && /^\s*\|[\s:|-]+\|\s*$/.test(lines[i + 1])) {
         var head = ln.trim().replace(/^\|/, "").replace(/\|$/, "").split("|").map(function (c) { return c.trim(); });
         i += 2; var rows = [];
@@ -1149,24 +1431,56 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
   }
 
   // 펼침 리스트 행 (할 일)
-  function todoRow(t, gi) {
+  // 일치 강조 — hl() 은 cmdk 전용(.cmdk-hit). 목록·본문 공용은 이쪽. **평문에만** 쓴다(HTML 에 씌우면 태그가 깨진다).
+  function hlm(text, terms) {
+    var out = esc(String(text == null ? "" : text));
+    (terms || []).forEach(function (tm) {
+      if (!tm) return;
+      var re = new RegExp("(" + String(tm).replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + ")", "gi");
+      out = out.replace(re, '<mark class="hit">$1</mark>');
+    });
+    return out;
+  }
+  function todoRow(t, gi, terms) {
     var id = "todo-" + gi;
     var dd = ddayLabel(t);
     var isPast = bucket(t) === "past";
     var ov = isPast ? '<span class="ov" aria-hidden="true"></span>' : "";
     var open = openSet[id] ? " open" : "";
-    return '<li class="todo' + open + '">' +
+    return '<li class="todo' + open + (t.state === "done" ? " is-done" : "") + '">' +
       '<button class="todo-row" type="button" data-exp="' + id + '" aria-expanded="' + (openSet[id] ? "true" : "false") + '" aria-controls="' + id + '">' +
         '<span class="kind ' + esc(t.kind) + '">' + esc(KIND_LABEL[t.kind] || t.kind) + '</span>' +
-        '<span class="todo-title">' + ov + esc(t.title) + '</span>' +
+        '<span class="todo-title">' + ov + ((terms && terms.length) ? hlm(t.title, terms) : esc(t.title)) + '</span>' +
         '<span class="todo-meta ' + dd.cls + '">' + esc(dd.txt) + '</span>' +
         '<span class="chev" aria-hidden="true">›</span>' +
       '</button>' +
       '<div class="todo-detail" id="' + id + '"><div class="todo-detail-inner">' +
         '<div class="detail-box">' + esc(kindHint(t)) +
+          // 원본 본문을 그 자리에서 보여준다 — 기록 탭의 리딩 문법과 통일(경로만 던지지 않는다)
+          (function () {
+            if (!t.source) return '<div class="snip empty-snip">연결된 원본 노트가 없어요.</div>';
+            var sn = bodySnippet(t.source, 220);
+            return sn ? '<div class="snip">' + esc(sn) + '</div>'
+              : '<div class="snip empty-snip">이 파일은 미리보기가 준비되지 않았어요 — ‘파일로 이동’ 으로 원본을 여세요.</div>';
+          })() +
           '<div class="src"><code>' + esc(t.source || "") + '</code></div>' +
+          // 교차 연결: 같은 원본을 참조하는 프로젝트·형제 산출물 (역방향 링크는 폴더 구조로 표현되지 않는다)
+          (function () {
+            if (!t.source) return "";
+            var bl = backlinksOf(t.source).filter(function (x) { return x.k !== "todo"; });
+            var sib = siblingsOf(t.source);
+            if (!bl.length && !sib.length) return "";
+            var chips = bl.map(function (x) {
+              return '<button class="xlink" type="button" data-project-open="' + esc(x.v) + '">' +
+                '<span class="ic" aria-hidden="true">◐</span><span class="tx">' + esc(x.t) + '</span></button>';
+            }).concat(sib.map(function (f) {
+              return '<button class="xlink" type="button" data-viewer="' + esc(f.path) + '">' +
+                '<span class="ic" aria-hidden="true">▤</span><span class="tx">' + esc(f.title || basename(f.path)) + '</span></button>';
+            })).join("");
+            return '<div class="xlink-h">관련</div><div class="xlinks">' + chips + '</div>';
+          })() +
           '<div class="acts" style="margin-top:var(--g-space-3)">' +
-            (t.source ? '<button class="g-btn g-btn--soft g-btn--sm" type="button" data-viewer="' + esc(t.source) + '">보기</button>' +
+            (t.source ? '<button class="g-btn g-btn--soft g-btn--sm" type="button" data-viewer="' + esc(t.source) + '">전체 보기</button>' +
               '<a class="g-btn g-btn--secondary g-btn--sm" href="' + esc(t.source) + '" target="_blank" rel="noopener" data-goto>파일로 이동 ↗</a>' : '') +
             '<button class="g-btn g-btn--secondary g-btn--sm" type="button" data-copy="' + esc(t.source || "") + '" aria-label="경로 복사">⧉ 복사</button>' +
           '</div>' +
@@ -1178,6 +1492,269 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
     if (t.kind === "issue") return "고객/운영 이슈예요. 방침을 정해 회신·조치하면 닫혀요.";
     if (bucket(t) === "past") return "기한이 지났어요. 오늘 가장 먼저 확인하면 좋아요.";
     return "리마인더예요. 아래 원본 노트에서 자세한 맥락을 볼 수 있어요.";
+  }
+
+  // ============================================================
+  // W20 2단계 · 시각화 프리미티브 + 파생 지표
+  // ------------------------------------------------------------
+  // 정직 규율: 데이터에 없는 추이·델타는 만들지 않는다. 아래 파생은 전부 실데이터에서 나온다.
+  //   · 기록 일별 건수 → records.tree/projects/recent 의 date (실제 파일 날짜)
+  //   · 활동 시각 분포 → status.today.activities[].time
+  //   · 기한 분포·시간축 → todos[].due
+  // 활동의 "어제 대비" 는 상태 파일에 어제 활동이 없으므로 만들지 않는다(허위 델타 금지).
+  // ============================================================
+
+  // 전 기록 색인 (경로 중복 제거) — 히트맵·스파크라인·백링크의 공용 원천
+  var _allRec = null;
+  function allRecords() {
+    if (_allRec) return _allRec;
+    var out = [], seen = {};
+    function push(f, fk) {
+      if (!f || !f.path || seen[f.path]) return;
+      seen[f.path] = 1;
+      out.push({ path: f.path, title: f.title, date: f.date, kind: f.kind, fk: fk });
+    }
+    var tr = records.tree || {}, tn = tr.notes || {}, tp = tr.projects || {};
+    REC_ORDER.forEach(function (k) { (tn[k] || []).forEach(function (f) { push(f, k); }); });
+    Object.keys(tp).forEach(function (sl) { (tp[sl] || []).forEach(function (f) { push(f, "proj:" + sl); }); });
+    (records.recent || []).forEach(function (f) { push(f, recFolderKeyOf(f.path)); });
+    (records.projects || []).forEach(function (f) { push(f, "proj:" + (projectSlug(f.path) || "")); });
+    _allRec = out;
+    return out;
+  }
+
+  function isoShift(iso, days) {
+    var d = parseD(iso); if (!d) return null;
+    d.setDate(d.getDate() + days);
+    function z(n) { return (n < 10 ? "0" : "") + n; }
+    return d.getFullYear() + "-" + z(d.getMonth() + 1) + "-" + z(d.getDate());
+  }
+  var WD = ["일", "월", "화", "수", "목", "금", "토"];
+
+  // 기록 지평선 — 기준일(status.today.date)과 **가장 최근 기록 날짜** 중 늦은 쪽.
+  // 노트는 기준일보다 나중 날짜일 수 있다(에이전트가 상태를 갱신하기 전에 기록만 쌓인 경우).
+  // 기준일에서 끊으면 KPI 총계(19)와 추이 합계(17)가 어긋나 같은 화면에 두 숫자가 생긴다(실측 결함).
+  var _recEnd = null;
+  function recEndIso() {
+    if (_recEnd) return _recEnd;
+    var mx = TODAY;
+    allRecords().forEach(function (f) {
+      var d = String(f.date || "").split("T")[0];
+      if (d.length === 10 && d > mx) mx = d;
+    });
+    _recEnd = mx;
+    return mx;
+  }
+
+  // 지평선 이전 nDays 일의 일별 기록 수 (마지막 원소 = 지평선 날짜)
+  // notesOnly: 홈의 '쌓인 기록' 값은 records.counts(노트 5분류) 이므로 추이·델타도 같은 모집단으로 센다.
+  //   섞으면 값 19 / 델타 28 처럼 같은 화면에서 두 개의 '기록 수' 가 나와 신뢰가 깨진다(실측 결함).
+  function recDayCounts(nDays, notesOnly) {
+    var byDay = {};
+    allRecords().forEach(function (f) {
+      if (notesOnly && String(f.fk || "").indexOf("proj:") === 0) return;
+      var d = String(f.date || "").split("T")[0];
+      if (d.length === 10) byDay[d] = (byDay[d] || 0) + 1;
+    });
+    var out = [], endIso = recEndIso();
+    for (var i = nDays - 1; i >= 0; i--) {
+      var iso = isoShift(endIso, -i);
+      out.push({ iso: iso, n: byDay[iso] || 0 });
+    }
+    return out;
+  }
+
+  // 마이크로 막대: 분포를 KPI 칩 안에 넣는다 (단일 계열 → 범례 없음)
+  function mbarsHTML(items, opt) {
+    opt = opt || {};
+    var max = 0;
+    items.forEach(function (it) { if (it.n > max) max = it.n; });
+    var bars = items.map(function (it) {
+      var h = max > 0 ? Math.max(it.n > 0 ? 3 : 2, Math.round((it.n / max) * 22)) : 2;
+      var cls = "mbar" + (it.n === 0 ? " zero" : (it.warn ? " warnb" : ""));
+      return '<span class="' + cls + '" style="height:' + h + 'px" data-tip="' + esc(it.tip) + '"></span>';
+    }).join("");
+    var axis = opt.axis
+      ? '<span class="mb-axis">' + items.map(function (it) { return "<span>" + esc(it.ax || "") + "</span>"; }).join("") + "</span>"
+      : "";
+    // data-viz: 어떤 분포인지 식별하는 안정 훅 (회귀 스위트가 '첫 번째 차트' 로 잘못 집는 것을 막는다)
+    return '<span class="kpi-viz"' + (opt.id ? ' data-viz="' + esc(opt.id) + '"' : '') +
+      ' role="img" aria-label="' + esc(opt.label || "분포") + '">' +
+      '<span class="mbars">' + bars + '</span>' + axis + '</span>';
+  }
+
+  // 스파크라인: 2px 선 + 10% 면 + 끝점 마커(서피스 링). 3점 미만이면 그리지 않는다.
+  function sparkHTML(series, opt) {
+    opt = opt || {};
+    if (!series || series.length < 3) return "";
+    var W = 100, H = 26, PAD = 3;
+    var max = 0;
+    series.forEach(function (p) { if (p.n > max) max = p.n; });
+    if (max <= 0) max = 1;
+    var step = (W - PAD * 2) / (series.length - 1);
+    var pts = series.map(function (p, i) {
+      var x = PAD + i * step;
+      var y = H - PAD - (p.n / max) * (H - PAD * 2);
+      return [Math.round(x * 10) / 10, Math.round(y * 10) / 10];
+    });
+    var dLine = pts.map(function (p, i) { return (i ? "L" : "M") + p[0] + " " + p[1]; }).join(" ");
+    var dArea = dLine + " L" + pts[pts.length - 1][0] + " " + (H - PAD) + " L" + pts[0][0] + " " + (H - PAD) + " Z";
+    var last = pts[pts.length - 1];
+    return '<span class="kpi-viz"' + (opt.id ? ' data-viz="' + esc(opt.id) + '"' : '') + '><svg class="spark" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none"' +
+      ' role="img" aria-label="' + esc(opt.label || "추이") + '">' +
+      '<path class="ar" d="' + dArea + '"/><path class="ln" d="' + dLine + '"/>' +
+      '<circle class="dt" cx="' + last[0] + '" cy="' + last[1] + '" r="2.6"/></svg></span>';
+  }
+
+  // 단계 분절 미터 — 순서 있는 칸(진행률 아님). 현재 단계는 진한 칸으로 한 칸만.
+  function pmeterHTML(phases, curIdx, done) {
+    if (!phases || !phases.length) return "";
+    var segs = phases.map(function (nm, i) {
+      var cls = done ? "on" : (curIdx >= 0 && i < curIdx ? "on" : (i === curIdx ? "cur" : ""));
+      var state = done ? "완료" : (i === curIdx ? "진행 중" : (curIdx >= 0 && i < curIdx ? "지남" : "예정"));
+      return '<i class="' + cls + '" data-tip="' + esc((i + 1) + ". " + nm + " · " + state) + '"></i>';
+    }).join("");
+    var lbl = done ? phases.length + "/" + phases.length + " 단계 완료"
+      : (curIdx >= 0 ? (curIdx + 1) + "/" + phases.length + " 단계 · " + phases[curIdx] : phases.length + "단계");
+    return '<span class="pmeter" role="img" aria-label="' + esc(lbl) + '">' + segs + '</span>' +
+      '<span class="pmeter-lbl">' + esc(lbl) + '</span>';
+  }
+
+  // 델타: 최근 half 대 그 직전 half 의 실측 차이. 데이터가 부족하면 표시하지 않는다.
+  function deltaHTML(series, half, periodLabel) {
+    if (!series || series.length < half * 2) return "";
+    var cur = 0, prev = 0, i;
+    for (i = series.length - half; i < series.length; i++) cur += series[i].n;
+    for (i = series.length - half * 2; i < series.length - half; i++) prev += series[i].n;
+    var d = cur - prev;
+    var cls = d > 0 ? "up" : d < 0 ? "down" : "flat";
+    var sign = d > 0 ? "▲" : d < 0 ? "▼" : "—";
+    var txt = d === 0 ? "변화 없음" : Math.abs(d) + "건";
+    return ' <span class="kpi-delta ' + cls + '" title="' + esc(periodLabel) + '">' + sign + " " + esc(txt) + "</span>";
+  }
+
+  // 히트맵: 기준일까지 주 단위 열 × 요일 행. 순차 스케일 = 한 색조 4단계(색 리터럴 0 — color-mix).
+  function heatHTML(weeks, notesOnly) {
+    var days = weeks * 7;
+    var endIso = recEndIso();                  // 기준일과 최신 기록일 중 늦은 쪽 (KPI 총계와 합계를 일치시킨다)
+    var end = parseD(endIso);
+    if (!end) return "";
+    var pad = end.getDay();                    // 마지막 주에서 지평선 이후 칸은 비운다
+    var series = recDayCounts(days + pad, notesOnly);
+    var byIso = {}; series.forEach(function (p) { byIso[p.iso] = p.n; });
+    var max = 0; series.forEach(function (p) { if (p.n > max) max = p.n; });
+    // 시작일을 일요일에 맞춘다
+    var startD = parseD(isoShift(endIso, -(days - 1)));
+    while (startD.getDay() !== 0) { startD.setDate(startD.getDate() - 1); }
+    function z(n) { return (n < 10 ? "0" : "") + n; }
+    function isoOf(d) { return d.getFullYear() + "-" + z(d.getMonth() + 1) + "-" + z(d.getDate()); }
+
+    var cols = [], cur = new Date(startD.getTime()), total = 0, best = null;
+    var endT = end.getTime();
+    while (cur.getTime() <= endT) {
+      var col = [];
+      for (var w = 0; w < 7; w++) {
+        var iso = isoOf(cur);
+        if (cur.getTime() > endT) { col.push({ voidCell: true }); }
+        else {
+          var n = byIso[iso] || 0;
+          total += n;
+          if (!best || n > best.n) best = { iso: iso, n: n };
+          col.push({ iso: iso, n: n, isToday: iso === TODAY });
+        }
+        cur.setDate(cur.getDate() + 1);
+      }
+      cols.push(col);
+    }
+    function lv(n) { if (!n) return ""; if (max <= 1) return " l4"; var r = n / max; return r > .75 ? " l4" : r > .5 ? " l3" : r > .25 ? " l2" : " l1"; }
+    var grid = cols.map(function (col) {
+      return '<span class="heat-col">' + col.map(function (c) {
+        if (c.voidCell) return '<span class="heat-c void" aria-hidden="true"></span>';
+        var p = c.iso.split("-");
+        var tip = (+p[1]) + "월 " + (+p[2]) + "일 · 기록 " + c.n + "건";
+        return '<span class="heat-c' + lv(c.n) + (c.isToday ? " today" : "") + '" data-tip="' + esc(tip) + '" aria-label="' + esc(tip) + '"></span>';
+      }).join("") + '</span>';
+    }).join("");
+    var dayCol = '<span class="heat-days" aria-hidden="true">' +
+      WD.map(function (d, i) { return "<span>" + (i % 2 === 1 ? d : "") + "</span>"; }).join("") + '</span>';
+    var legend = '<div class="heat-legend"><span>적음</span>' +
+      '<span class="heat-c"></span><span class="heat-c l1"></span><span class="heat-c l2"></span><span class="heat-c l3"></span><span class="heat-c l4"></span>' +
+      '<span>많음</span></div>';
+    var bp = best && best.n ? best.iso.split("-") : null;
+    var sum = '<div class="heat-sum">최근 ' + weeks + '주 <b>' + total + '</b>건' + (notesOnly ? ' (노트 기준)' : '') +
+      (bp ? ' · 가장 많았던 날 <b>' + (+bp[1]) + '월 ' + (+bp[2]) + '일</b>(' + best.n + '건)' : '') + '</div>';
+    return '<div class="heat-wrap">' + dayCol + '<div class="heat">' + grid + '</div></div>' + legend + sum;
+  }
+
+  // 이번 주 시간축: 기준일 -2 ~ +7. 각 점 = 기한이 그 날인 할 일 1건 (클릭 = 상세로 이동).
+  function weekTimelineHTML() {
+    var FROM = -2, TO = 7, cells = [];
+    for (var i = FROM; i <= TO; i++) {
+      var iso = isoShift(TODAY, i);
+      var d = parseD(iso);
+      var items = activeTodos.filter(function (t) { return String(t.due || "").split("T")[0] === iso; });
+      cells.push({ iso: iso, off: i, wd: d ? d.getDay() : 0, dd: d ? d.getDate() : 0, mm: d ? d.getMonth() + 1 : 0, items: items });
+    }
+    var withDue = activeTodos.filter(function (t) { return !!t.due; }).length;
+    var noDue = activeTodos.length - withDue;
+    var inRange = cells.reduce(function (a, c) { return a + c.items.length; }, 0);
+    var grid = cells.map(function (c) {
+      var cls = "wtl-day" + (c.off === 0 ? " is-today" : c.off < 0 ? " is-past" : ((c.wd === 0 || c.wd === 6) ? " weekend" : ""));
+      var pips = c.items.map(function (t) {
+        var k = c.off < 0 ? " od" : (t.kind === "issue" ? " iss" : "");
+        var tip = t.title + " · " + ddayLabel(t).txt;
+        return '<button class="wtl-pip' + k + '" type="button" data-tip="' + esc(tip) + '"' +
+          ' data-todo-jump="' + esc(String(todos.indexOf(t))) + '" aria-label="' + esc(tip) + '"></button>';
+      }).join("");
+      return '<div class="' + cls + '"><span class="wtl-d">' + esc(WD[c.wd]) + '<b>' + c.dd + '</b></span>' +
+        '<span class="wtl-pips">' + pips + '</span></div>';
+    }).join("");
+    var legend = '<div class="wtl-legend">' +
+      '<span><i class="k-od"></i>지난 기한</span><span><i class="k-rem"></i>리마인더</span><span><i class="k-iss"></i>이슈</span>' +
+      '<span>이 구간 ' + inRange + '건' + (noDue ? ' · 기한 없는 항목 ' + noDue + '건은 할 일 탭 ‘예정’' : '') + '</span></div>';
+    return '<div class="wtl"><div class="wtl-grid">' + grid + '</div>' + legend + '</div>';
+  }
+
+  // 본문 발췌 (인라인 리딩) — 제목 줄·빈 줄을 걷어내고 앞부분만
+  function bodySnippet(path, maxLen) {
+    var e = contentByPath[path];
+    if (!e) return null;
+    if (e.table) {
+      var rows = e.table || [];
+      return rows.length ? "표 " + rows.length + "행 · " + (rows[0] || []).slice(0, 4).join(" · ") : null;
+    }
+    if (!e.content) return null;
+    var lines = String(e.content).split("\n").filter(function (l) {
+      var s2 = l.trim();
+      return s2 && s2.charAt(0) !== "#" && !/^[-=]{3,}$/.test(s2);
+    });
+    var txt = lines.slice(0, 3).join(" ").replace(/[*`>]/g, "").replace(/\s+/g, " ").trim();
+    if (!txt) return null;
+    var lim = maxLen || 180;
+    return txt.length > lim ? txt.slice(0, lim) + "…" : txt;
+  }
+
+  // ── 백링크: 이 경로를 참조하는 곳 (역방향 — 파일 탐색기가 구조적으로 못 하는 것) ──
+  function backlinksOf(path) {
+    if (!path) return [];
+    var out = [];
+    todos.forEach(function (t, i) {
+      if (t.source === path) {
+        out.push({ g: "할 일", t: (KIND_LABEL[t.kind] || t.kind) + " · " + t.title, k: "todo", v: String(i) });
+      }
+    });
+    projectList.forEach(function (p) {
+      var hit = (p.outputs || []).some(function (o) { return (typeof o === "string" ? o : o.path) === path; });
+      if (!hit && projectSlug(path) && projectSlug(path) === matchedSlug(p)) hit = true;
+      if (hit) out.push({ g: "프로젝트", t: p.goal, k: "project", v: p.id });
+    });
+    return out;
+  }
+  // 이 경로를 참조하는 폴더 이웃 (같은 프로젝트 폴더의 다른 산출물)
+  function siblingsOf(path) {
+    var sl = projectSlug(path);
+    if (!sl) return [];
+    return allRecords().filter(function (f) { return f.path !== path && projectSlug(f.path) === sl; }).slice(0, 6);
   }
 
   // ── 홈 탭 ──────────────────────────────────────────────────
@@ -1213,16 +1790,63 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
       '<p class="hi-sub">' + esc(sentence) + '</p>' +
     '</div>';
 
-    // KPI 스트립 4칩 (폴드 위) — 데이터 없으면 0 + 안내 서브
+    // ── KPI 스트립 4칩 — 라벨 + 값 + (실측 가능하면) 델타 + 추이 시각화 ──
+    // 리서치 기준: KPI 카드는 라벨·값·델타·추이 4요소. 단, **한 카드에 시각화는 하나만**(막대·선 중복 금지).
+    // 정직: 델타는 실데이터로 계산 가능한 것만 붙인다. 활동은 어제 데이터가 상태 파일에 없어 델타 없음.
     var actN = (today.activities || []).length;
     var recTotal = Object.keys(records.counts || {}).reduce(function (a, k) { return a + (records.counts[k] || 0); }, 0);
     var actSub = "기록 " + (tcounts.notes || 0) + " · 이슈 " + (tcounts.issues || 0) + " · 초안 " + (tcounts.drafts || 0);
+
+    // ① 해야 할 일 — 기한 분포 막대(지남/오늘/D1~2/D3~7/그 외)
+    var dueDist = (function () {
+      var b = { od: 0, td: 0, d12: 0, d37: 0, far: 0 };
+      activeTodos.forEach(function (t) {
+        var d = dayDiff(t.due);
+        if (d === null) { b.far++; return; }
+        if (d < 0) b.od++;
+        else if (d === 0) b.td++;
+        else if (d <= 2) b.d12++;
+        else if (d <= 7) b.d37++;
+        else b.far++;
+      });
+      return [
+        { n: b.od, ax: "지남", tip: "기한 지남 " + b.od + "건", warn: true },
+        { n: b.td, ax: "오늘", tip: "오늘 마감 " + b.td + "건" },
+        { n: b.d12, ax: "1~2", tip: "1~2일 뒤 " + b.d12 + "건" },
+        { n: b.d37, ax: "3~7", tip: "3~7일 뒤 " + b.d37 + "건" },
+        { n: b.far, ax: "그외", tip: "8일 뒤·기한 없음 " + b.far + "건" }
+      ];
+    })();
+
+    // ② 오늘 활동 — 시각 분포 막대(3시간 구간). activities[].time 실측.
+    var actDist = (function () {
+      var slots = [0, 0, 0, 0, 0, 0, 0, 0];
+      (today.activities || []).forEach(function (a) {
+        var h = parseInt(String(a.time || "").split(":")[0], 10);
+        if (!isNaN(h) && h >= 0 && h < 24) slots[Math.floor(h / 3)]++;
+      });
+      var peak = -1, peakI = -1;
+      slots.forEach(function (n, i) { if (n > peak) { peak = n; peakI = i; } });
+      return {
+        bars: slots.map(function (n, i) {
+          return { n: n, ax: (i % 2 === 0 ? String(i * 3) : ""), tip: (i * 3) + "~" + (i * 3 + 3) + "시 " + n + "건" };
+        }),
+        peakLabel: peak > 0 ? (peakI * 3) + "~" + (peakI * 3 + 3) + "시가 가장 활발" : ""
+      };
+    })();
+
+    // ④ 쌓인 기록 — 14일 스파크라인 + 7일 대 7일 실측 델타
+    var recSeries = recDayCounts(14, true);
+
     var kpi3 = proj
       ? '<a class="kpi" href="#project"><span class="kpi-k">프로젝트' + (isWarn ? ' <span class="pin warn"></span>' : '') + '</span>' +
           (pgProg != null
             ? '<span class="kpi-v">' + pgProg + '<span class="u">%</span></span>'
             : '<span class="kpi-v" style="font:var(--g-title-2)">' + esc(proj.phase || '진행 중') + '</span>') +
-          '<span class="kpi-sub">' + (proj.health ? '<span class="' + (isWarn ? 'wn' : '') + '">' + esc(proj.health) + '</span> · ' : '') + esc(proj.phase || '진행 중') + (proj.phase ? ' 단계' : '') + '</span></a>'
+          // 단계·진행칸은 아래 분절 미터가 말한다 — 서브라벨은 건강 상태만 (중복 표기 제거)
+          '<span class="kpi-sub">' + (proj.health ? '<span class="' + (isWarn ? 'wn' : '') + '">' + esc(proj.health) + '</span>' : esc(proj.phase || '진행 중')) +
+          (isWarn && proj.healthReason ? ' · 점검 필요' : '') + '</span>' +
+          '<span class="kpi-viz" data-viz="phase">' + pmeterHTML(proj.phases || [], (proj.phases || []).indexOf(proj.phase), false) + '</span></a>'
       : '<a class="kpi" href="#project"><span class="kpi-k">프로젝트</span>' +
           '<span class="kpi-v">' + activeCount + '<span class="u">건</span></span>' +
           '<span class="kpi-sub">' + (doneCount ? '완료 ' + doneCount + '건' : '진행 중 없음') + '</span></a>';
@@ -1231,14 +1855,17 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
         '<span class="kpi-v">' + activeTodos.length + '<span class="u">건</span></span>' +
         '<span class="kpi-sub">' + (overdueN > 0
           ? '<span class="od"><span class="odd"></span>지난 ' + overdueN + '건</span> · 오늘 ' + todayN + '건'
-          : (activeTodos.length ? '오늘 ' + todayN + '건 · 예정 ' + laterN + '건' : '지금 챙길 일 없음')) + '</span></a>' +
+          : (activeTodos.length ? '오늘 ' + todayN + '건 · 예정 ' + laterN + '건' : '지금 챙길 일 없음')) + '</span>' +
+        (activeTodos.length ? mbarsHTML(dueDist, { axis: true, id: "due", label: "기한 분포" }) : '') + '</a>' +
       '<a class="kpi" href="#records"><span class="kpi-k">오늘 활동</span>' +
         '<span class="kpi-v">' + actN + '<span class="u">건</span></span>' +
-        '<span class="kpi-sub">' + (actN ? esc(actSub) : '아직 활동 없음') + '</span></a>' +
+        '<span class="kpi-sub">' + (actN ? esc(actSub) : '아직 활동 없음') + '</span>' +
+        (actN ? mbarsHTML(actDist.bars, { axis: true, id: "act", label: "시각 분포" }) : '') + '</a>' +
       kpi3 +
       '<a class="kpi" href="#records"><span class="kpi-k">쌓인 기록</span>' +
         '<span class="kpi-v">' + recTotal + '<span class="u">건</span></span>' +
-        '<span class="kpi-sub">' + (recTotal ? '5개 분류 · 최근 ' + (records.recent || []).length + '건' : '아직 기록 없음') + '</span></a>' +
+        '<span class="kpi-sub">' + (recTotal ? '5개 분류' + deltaHTML(recSeries, 7, "최근 7일 대 그 직전 7일") : '아직 기록 없음') + '</span>' +
+        sparkHTML(recSeries, { id: "rec", label: "최근 14일 기록 추이" }) + '</a>' +
     '</div>';
 
     // 오늘 챙길 일 (없으면 긍정 빈 상태)
@@ -1294,48 +1921,102 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
     var actMini = '<section class="card" aria-labelledby="home-act-h">' +
       '<h2 class="card-title" id="home-act-h">오늘 활동 <span class="count">· 최근</span><a class="more" href="#records">기록 보기 →</a></h2>' + actBody + '</section>';
 
-    // 지금 결정할 것 — 홈의 단일 강조 1건 (지난 일 > 오늘 마감 > 주의 프로젝트, 없으면 표시 안 함)
+    // 지금 결정할 것 — 홈의 단일 강조 1건 + 다음 후보 2건 (지난 일 > 오늘 마감 > 주의 프로젝트).
+    // primary 버튼은 화면당 1회 규율 유지 — 후보는 ghost 만 쓴다(GYEOL 4대 불가침).
     var decide = "";
     if (!identityMissing) {
       var dSorted = activeTodos.slice().sort(function (a, b) { return rank(a) - rank(b); });
-      var pick = null, pkind = "";
-      for (var di = 0; di < dSorted.length; di++) {
-        var bb = bucket(dSorted[di]);
-        if (bb === "past") { pick = dSorted[di]; pkind = "od"; break; }
-        if (!pick && bb === "today") { pick = dSorted[di]; pkind = "today"; }
-      }
+      var cand = [];
+      dSorted.forEach(function (t) {
+        var bb = bucket(t);
+        if (bb === "past") cand.push({ t: t, kind: "od" });
+        else if (bb === "today") cand.push({ t: t, kind: "today" });
+      });
+      if (isWarn && proj) cand.push({ p: proj, kind: "warn" });
+      var pick = cand[0] || null;
+      var nexts = cand.slice(1, 3);
+      function kLabel(k) { return k === "od" ? "지난 일부터" : k === "today" ? "오늘 마감" : "프로젝트 점검"; }
       if (pick) {
-        decide = '<section class="decide' + (pkind === "od" ? ' od' : '') + '" aria-labelledby="decide-h">' +
-          '<div class="decide-body"><span class="decide-k" id="decide-h">' + (pkind === "od" ? "지난 일부터" : "오늘 마감") + '</span>' +
-          '<p class="decide-t">' + esc(pick.title) + '</p>' +
-          '<p class="decide-why">' + (pkind === "od" ? "기한이 지난 일이 오늘을 무겁게 해요 — 이것부터 정리하면 좋아요." : "오늘 안에 처리하면 좋은 일이에요.") + '</p></div>' +
-          '<div class="decide-acts">' +
-            (pick.source ? '<button class="g-btn g-btn--primary" type="button" data-viewer="' + esc(pick.source) + '">지금 보기</button>' : '') +
-            '<a class="g-btn g-btn--ghost" href="#todos">할 일 탭 →</a>' +
-          '</div></section>';
-      } else if (isWarn) {
-        decide = '<section class="decide warn" aria-labelledby="decide-h">' +
-          '<div class="decide-body"><span class="decide-k" id="decide-h">프로젝트 점검</span>' +
-          '<p class="decide-t">' + esc(proj.goal) + '</p>' +
-          (proj.healthReason ? '<p class="decide-why">' + esc(proj.healthReason) + '</p>' : '') + '</div>' +
-          '<div class="decide-acts"><a class="g-btn g-btn--primary" href="#project">자세히 보기</a></div></section>';
+        var nextHTML = "";
+        if (nexts.length) {
+          nextHTML = '<div class="xlinks" style="width:100%">' +
+            '<span class="xlink-h" style="width:100%;margin-top:0">그다음 · ' + nexts.length + '건</span>' +
+            nexts.map(function (c) {
+              if (c.p) return '<a class="xlink" href="#project"><span class="ic" aria-hidden="true">◐</span>' +
+                '<span class="tx">' + esc(c.p.goal) + '</span></a>';
+              var ddx = ddayLabel(c.t);
+              return '<button class="xlink" type="button" data-todo-jump="' + esc(String(todos.indexOf(c.t))) + '">' +
+                '<span class="ic" aria-hidden="true">' + (c.kind === "od" ? "◉" : "◯") + '</span>' +
+                '<span class="tx">' + esc(c.t.title) + '</span><span class="ic">' + esc(ddx.txt) + '</span></button>';
+            }).join("") + '</div>';
+        }
+        if (pick.p) {
+          decide = '<section class="decide warn" aria-labelledby="decide-h">' +
+            '<div class="decide-body"><span class="decide-k" id="decide-h">프로젝트 점검</span>' +
+            '<p class="decide-t">' + esc(pick.p.goal) + '</p>' +
+            (pick.p.healthReason ? '<p class="decide-why">' + esc(pick.p.healthReason) + '</p>' : '') + '</div>' +
+            '<div class="decide-acts"><a class="g-btn g-btn--primary" href="#project">자세히 보기</a></div>' + nextHTML + '</section>';
+        } else {
+          decide = '<section class="decide' + (pick.kind === "od" ? ' od' : '') + '" aria-labelledby="decide-h">' +
+            '<div class="decide-body"><span class="decide-k" id="decide-h">' + kLabel(pick.kind) + '</span>' +
+            '<p class="decide-t">' + esc(pick.t.title) + '</p>' +
+            '<p class="decide-why">' + (pick.kind === "od" ? "기한이 지난 일이 오늘을 무겁게 해요 — 이것부터 정리하면 좋아요." : "오늘 안에 처리하면 좋은 일이에요.") + '</p></div>' +
+            '<div class="decide-acts">' +
+              (pick.t.source ? '<button class="g-btn g-btn--primary" type="button" data-viewer="' + esc(pick.t.source) + '">지금 보기</button>' : '') +
+              '<a class="g-btn g-btn--ghost" href="#todos">할 일 탭 →</a>' +
+            '</div>' + nextHTML + '</section>';
+        }
       }
     }
 
-    var split = '<div class="split"><div>' + todoCard + '</div><div class="stack">' + projMini + actMini + '</div></div>';
+    // 이번 주 시간축 — due 가 날짜인데 화면에 시간축이 없던 결함 해소(파일 탐색기에 캘린더는 없다)
+    var weekCard = activeTodos.length
+      ? '<section class="card" aria-labelledby="home-wk-h">' +
+        '<h2 class="card-title" id="home-wk-h">이번 주 기한 <span class="count">· ' + esc(kdateShort(TODAY)) + ' 기준</span>' +
+        '<a class="more" href="#todos">할 일 탭 →</a></h2>' + weekTimelineHTML() + '</section>'
+      : "";
+
+    // 기록이 쌓인 흐름 — 실제 파일 날짜 분포(추이 감각은 숫자 하나로 안 나온다)
+    var heatCard = allRecords().length
+      ? '<section class="card" aria-labelledby="home-heat-h">' +
+        '<h2 class="card-title" id="home-heat-h">기록이 쌓인 흐름<a class="more" href="#records">기록 탭 →</a></h2>' +
+        heatHTML(8, true) + '</section>'
+      : "";
+
+    var split = '<div class="split"><div class="stack">' + todoCard + weekCard + '</div>' +
+      '<div class="stack">' + projMini + actMini + heatCard + '</div></div>';
     return panelWrap("home", "", hero + decide + kpis + split);
   }
+  function kdateShort(iso) { var p = String(iso).split("-"); return p.length === 3 ? (+p[1]) + "/" + (+p[2]) : iso; }
 
   // ── 할 일 탭 ───────────────────────────────────────────────
-  function renderTodos() {
+  // 필터 상태 — 목록만 부분 교체한다(전체 재렌더 시 검색 입력의 포커스·커서가 날아간다)
+  var todoFilter = { kind: "all", due: "all", q: "" };
+  function todoMatches(t) {
+    if (todoFilter.kind !== "all" && t.kind !== todoFilter.kind) return false;
+    if (todoFilter.due !== "all" && bucket(t) !== todoFilter.due) return false;
+    var q = todoFilter.q.trim().toLowerCase();
+    if (q) {
+      var hay = (t.title || "") + " " + (t.source || "") + " " + (bodySnippet(t.source, 400) || "");
+      if (hay.toLowerCase().indexOf(q) < 0) return false;
+    }
+    return true;
+  }
+  function todoListHTML() {
+    var terms = todoFilter.q.trim() ? [todoFilter.q.trim()] : [];
+    var filtered = todos.map(function (t, i) { return { t: t, i: i }; }).filter(function (o) { return todoMatches(o.t); });
+    var actives = filtered.filter(function (o) { return o.t.state !== "done"; });
+    var dones = filtered.filter(function (o) { return o.t.state === "done"; });
+    var anyFilter = todoFilter.kind !== "all" || todoFilter.due !== "all" || !!todoFilter.q.trim();
+
     function bucketBlock(key, label, cls, emptyMsg, emptyEm) {
-      var items = todos.map(function (t, i) { return { t: t, i: i }; })
-        .filter(function (o) { return o.t.state !== "done" && bucket(o.t) === key; })
+      var items = actives.filter(function (o) { return bucket(o.t) === key; })
         .sort(function (a, b) { return rank(a.t) - rank(b.t); });
+      if (!items.length && anyFilter) return "";   // 필터 중엔 빈 버킷이 화면을 먹지 않게 접는다
       var body;
       if (items.length) {
         body = '<ul class="rows">';
-        items.forEach(function (o) { body += todoRow(o.t, o.i); });
+        items.forEach(function (o) { body += todoRow(o.t, o.i, terms); });
         body += '</ul>';
       } else {
         body = '<div class="empty"><span class="em">' + emptyEm + '</span>' + esc(emptyMsg) + '</div>';
@@ -1343,11 +2024,67 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
       return '<div class="bucket ' + cls + '"><div class="bucket-head">' + esc(label) +
         ' <span class="bn">' + items.length + '건</span></div><div class="card">' + body + '</div></div>';
     }
-    var content =
+    var buckets =
       bucketBlock("past", "지난 (먼저 처리)", "past", "지난 일이 없어요. 깔끔해요.", "✅") +
       bucketBlock("today", "오늘", "today", "오늘 마감할 일이 없어요.", "🧹") +
       bucketBlock("later", "예정 · 열린 이슈", "later", "예정된 일이 없어요.", "📅");
-    return panelWrap("todos", "리마인더와 이슈를 기한별로 모았어요. 항목을 누르면 원본 경로가 열려요.", content);
+    if (!buckets) {
+      buckets = '<div class="card"><div class="empty rec-search-empty"><span class="em">🔍</span>' +
+        '조건에 맞는 할 일이 없어요. 필터를 넓혀 보세요.</div></div>';
+    }
+    // 완료 — 기본 접힘. 상태 파일에 완료 시각이 없으므로 "오늘 완료" 라고 단정하지 않는다.
+    var doneBlock = "";
+    if (dones.length) {
+      doneBlock = '<div class="fold"><button class="fold-h" type="button" data-fold="todo-done" aria-expanded="' +
+        (openSet["fold-todo-done"] ? "true" : "false") + '" aria-controls="fold-todo-done">' +
+        '<span class="tw" aria-hidden="true">›</span>완료<span class="n">' + dones.length + '건</span></button>' +
+        '<div class="fold-b" id="fold-todo-done"' + (openSet["fold-todo-done"] ? "" : " hidden") + '><ul class="rows">' +
+        dones.map(function (o) { return todoRow(o.t, o.i, terms); }).join("") + '</ul></div></div>';
+    }
+    return buckets + doneBlock;
+  }
+  function renderTodos() {
+    function cnt(fn) { return todos.filter(fn).length; }
+    function chip(attr, val, label, n) {
+      var on = todoFilter[attr] === val;
+      return '<button class="fchip" type="button" data-tf="' + attr + '" data-tfv="' + val + '" aria-pressed="' + (on ? "true" : "false") + '">' +
+        esc(label) + (n != null ? '<span class="n">' + n + '</span>' : '') + '</button>';
+    }
+    var fbar = '<div class="fbar">' +
+      '<span class="fgroup" role="group" aria-label="종류 필터">' +
+        chip("kind", "all", "전체", activeTodos.length) +
+        chip("kind", "reminder", "리마인더", cnt(function (t) { return t.state !== "done" && t.kind === "reminder"; })) +
+        chip("kind", "issue", "이슈", cnt(function (t) { return t.state !== "done" && t.kind === "issue"; })) +
+      '</span>' +
+      '<span class="fgroup" role="group" aria-label="기한 필터">' +
+        chip("due", "all", "기한 전체") +
+        chip("due", "past", "지남", overdueN) +
+        chip("due", "today", "오늘", todayN) +
+        chip("due", "later", "예정", laterN) +
+      '</span>' +
+      '<span class="fsearch"><input id="todo-q" type="search" placeholder="제목·본문 검색" ' +
+        'value="' + esc(todoFilter.q) + '" aria-label="할 일 검색" autocomplete="off">' +
+        (todoFilter.q ? '<button class="fx" type="button" data-tf-clear aria-label="검색 지우기">✕</button>' : '') + '</span>' +
+      '<span class="fresult" id="todo-count"></span>' +
+    '</div>';
+    var content = fbar + '<div id="todo-body">' + todoListHTML() + '</div>';
+    return panelWrap("todos", "리마인더와 이슈를 기한별로 모았어요. 항목을 펼치면 원본 본문과 관련 항목이 그 자리에서 보여요.", content);
+  }
+  // 목록만 다시 그린다 (필터·검색) — 입력 포커스와 스크롤을 지킨다
+  function paintTodoList() {
+    var b = document.getElementById("todo-body");
+    if (b) b.innerHTML = todoListHTML();
+    var c = document.getElementById("todo-count");
+    if (c) {
+      var n = todos.filter(function (t) { return t.state !== "done" && todoMatches(t); }).length;
+      var anyFilter = todoFilter.kind !== "all" || todoFilter.due !== "all" || !!todoFilter.q.trim();
+      c.innerHTML = anyFilter ? '<b>' + n + '</b>건 / 전체 ' + activeTodos.length + '건' : '전체 <b>' + activeTodos.length + '</b>건';
+    }
+    var chips = document.querySelectorAll("#panel-todos [data-tf]");
+    for (var i = 0; i < chips.length; i++) {
+      var a = chips[i].getAttribute("data-tf"), v = chips[i].getAttribute("data-tfv");
+      chips[i].setAttribute("aria-pressed", todoFilter[a] === v ? "true" : "false");
+    }
   }
 
   // ── 프로젝트 탭 (목록 → 상세) ──────────────────────────────
@@ -1366,16 +2103,57 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
   function projectListHTML() {
     var active = projectList.filter(function (p) { return !p.done; });
     var doneP = projectList.filter(function (p) { return p.done; });
+    // 카드가 216자짜리 빈 화면이던 결함 해소 — 카드 안에서 판단이 끝나게 실데이터를 얹는다.
+    // (단계 위치 · 팀 · 산출물 수 · 최근 로그/요약 · 주의 사유). 없는 값은 그냥 생략한다.
     function cardBtn(p) {
       var period = p.done ? (ymd(p.completedAt) + " 완료") : (p.startedAt ? ymd(p.startedAt) + " 시작" : "");
       var healthChip = p.health ? '<span class="chip ' + healthChipCls(p.health) + '">' + esc(p.health) + '</span>' : '';
       var bar = (p.progress != null)
         ? '<div class="progress"><div class="progress-track"><div class="progress-fill" style="width:' + p.progress + '%"></div></div><span class="progress-pct">' + p.progress + '%</span></div>' : '';
-      var foot = '<div style="text-align:right;margin-top:var(--g-space-3)"><span class="pc-arrow" aria-hidden="true">' + (p.phase ? esc(p.phase) + ' 단계 · ' : '') + '자세히 ›</span></div>';
+      var phases = p.phases || [];
+      var meter = phases.length ? pmeterHTML(phases, phases.indexOf(p.phase), p.done) : "";
+
+      // 팀: 실제 직원 아바타 + 인원
+      var mems = p.members || [];
+      var team4 = mems.slice(0, 4).map(function (m) {
+        var st = staffForMember(m);
+        return st ? avatarHTML(st, st.name, "") : '<span class="avatar vacant" aria-hidden="true">' + esc(String(m.role || "?").slice(0, 1)) + '</span>';
+      }).join("");
+      var teamLine = mems.length
+        ? '<div class="pc-line"><span class="pc-avs">' + team4 + '</span><span class="pc-k">' + mems.length + '명 편성</span>' +
+          (function () {
+            var w = mems.filter(function (m) { return m.status === "working"; }).length;
+            var d = mems.filter(function (m) { return m.status === "done"; }).length;
+            var parts = [];
+            if (w) parts.push("진행 " + w);
+            if (d) parts.push("완료 " + d);
+            return parts.length ? '<span class="pc-k dim">' + esc(parts.join(" · ")) + '</span>' : "";
+          })() + '</div>'
+        : "";
+
+      // 산출물 수 (직접 → 완료는 추정 매칭)
+      var outs = (p.outputs || []);
+      var outN = outs.length, outEst = false;
+      if (!outN && p.done) { var mi = matchProject(p); outN = mi.items.length; outEst = outN > 0; }
+      var outLine = outN
+        ? '<div class="pc-line"><span class="pc-k">산출물 ' + outN + '건' + (outEst ? ' (추정 연결)' : '') + '</span></div>' : "";
+
+      // 마지막 로그(진행 중) 또는 완료 요약 첫 문장 — 카드에서 "무슨 상황인지" 가 읽히게
+      var note = "";
+      if (!p.done && (p.log || []).length) note = p.log[p.log.length - 1].message;
+      else if (p.done && p.summary) {
+        // 첫 문장만 — 룩비하인드 정규식은 구형 엔진에서 **문법 오류로 스크립트 전체를 죽인다**. 문자 탐색으로 처리.
+        var sm = String(p.summary), dot = sm.indexOf(". ");
+        note = dot > 20 ? sm.slice(0, dot + 1) : sm;
+      }
+      if (p.health === "주의" && p.healthReason) note = p.healthReason;
+      var noteLine = note ? '<div class="pc-note">' + esc(note.length > 130 ? note.slice(0, 130) + "…" : note) + '</div>' : "";
+
+      var foot = '<div style="text-align:right;margin-top:var(--g-space-3)"><span class="pc-arrow" aria-hidden="true">자세히 ›</span></div>';
       return '<button class="proj-card" type="button" data-project-open="' + esc(p.id) + '">' +
         '<div class="pc-top"><span class="pc-goal">' + esc(p.goal) + '</span>' + healthChip +
           (period ? '<span class="pc-period">' + esc(period) + '</span>' : '') + '</div>' +
-        bar + foot + '</button>';
+        bar + meter + noteLine + teamLine + outLine + foot + '</button>';
     }
     var actHtml = active.length ? active.map(cardBtn).join("") : '<div class="empty"><span class="em">🚀</span>진행 중인 프로젝트가 없어요. 큰 일을 맡기면 팀이 꾸려져요.</div>';
     var doneHtml = doneP.length ? doneP.map(cardBtn).join("") : '<div class="empty"><span class="em">📁</span>완료한 프로젝트가 아직 없어요.</div>';
@@ -1388,30 +2166,37 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
 
   // notes/projects/<슬러그>/... 에서 슬러그 추출
   function projectSlug(path) { var m = String(path || "").split("notes/projects/")[1]; return m ? m.split("/")[0] : null; }
-  // 완료 프로젝트 goal ↔ records.projects 슬러그 매칭 → 산출물 목록
-  function matchedOutputs(p) {
-    var projs = (records.projects || []); if (!projs.length) return [];
+  // 완료 프로젝트 goal ↔ records.projects 슬러그 매칭 → {slug, items, hits, why}
+  // 추정 매칭이므로 **근거를 화면에 밝힌다**(어느 폴더를 무슨 낱말로 골랐는지). 오매칭을 사용자가 알아챌 수 있게.
+  function matchProject(p) {
+    var none = { slug: null, items: [], hits: [], why: "" };
+    var projs = (records.projects || []); if (!projs.length) return none;
     var bySlug = {};
     projs.forEach(function (o) { var sl = projectSlug(o.path); if (sl) (bySlug[sl] = bySlug[sl] || []).push(o); });
-    var slugs = Object.keys(bySlug); if (!slugs.length) return [];
+    var slugs = Object.keys(bySlug); if (!slugs.length) return none;
     var tokens = String(p.goal || "").replace(/[^가-힣a-zA-Z0-9]+/g, " ").split(" ").filter(function (t) { return t.length >= 2; });
     // 첫 일치 반환은 "런칭" 같은 공통 토큰이 다른 프로젝트 폴더에 먼저 걸린다(교차 오매칭) —
     // 가장 많은 토큰이 일치하는 슬러그를 고른다.
-    var best = null, bestScore = 0;
+    var best = null, bestScore = 0, bestHits = [];
     for (var i = 0; i < slugs.length; i++) {
-      var score = 0;
-      for (var j = 0; j < tokens.length; j++) { if (slugs[i].indexOf(tokens[j]) !== -1) score++; }
-      if (score > bestScore) { bestScore = score; best = slugs[i]; }
+      var hits = [];
+      for (var j = 0; j < tokens.length; j++) { if (slugs[i].indexOf(tokens[j]) !== -1) hits.push(tokens[j]); }
+      if (hits.length > bestScore) { bestScore = hits.length; best = slugs[i]; bestHits = hits; }
     }
-    if (best) return bySlug[best];
+    if (best) return { slug: best, items: bySlug[best], hits: bestHits, why: "낱말 일치" };
     var doneN = projectList.filter(function (x) { return x.done; }).length; // 완료 1개 & 폴더 1개면 그것
-    if (doneN === 1 && slugs.length === 1) return bySlug[slugs[0]];
-    return [];
+    if (doneN === 1 && slugs.length === 1) return { slug: slugs[0], items: bySlug[slugs[0]], hits: [], why: "폴더가 하나뿐" };
+    return none;
   }
+  function matchedOutputs(p) { return matchProject(p).items; }
+  function matchedSlug(p) { return matchProject(p).slug; }
   function outListHTML(items) {
     var h = '<ul class="out-list">';
     items.forEach(function (o) {
-      h += '<li><span class="of" aria-hidden="true">▤</span><code>' + esc(o.path) + '</code>' +
+      var sn = bodySnippet(o.path, 110);
+      h += '<li><span class="of" aria-hidden="true">▤</span>' +
+        '<span style="min-width:0"><code>' + esc(o.path) + '</code>' +
+        (sn ? '<span class="out-snip">' + esc(sn) + '</span>' : '') + '</span>' +
         '<span class="acts" style="margin-left:auto">' +
           '<button class="g-btn g-btn--soft g-btn--sm" type="button" data-viewer="' + esc(o.path) + '">보기</button>' +
           '<a class="g-btn g-btn--secondary g-btn--sm" href="' + esc(o.path) + '" target="_blank" rel="noopener" data-goto>파일로 이동 ↗</a>' +
@@ -1420,30 +2205,77 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
     });
     return h + '</ul>';
   }
+  // 멤버 → 스태프 매칭: name 정확 일치 → role 정확 일치 → "팀장(PM)" 처럼 접두 일치
+  function staffForMember(m) {
+    if (!m) return null;
+    if (m.name && staffByName[m.name]) return staffByName[m.name];
+    if (m.role && staffByRole[m.role]) return staffByRole[m.role];
+    for (var i = 0; i < staffList.length; i++) {
+      var r = staffList[i].role;
+      if (r && m.role && (String(m.role).indexOf(r) === 0 || String(r).indexOf(m.role) === 0)) return staffList[i];
+    }
+    return null;
+  }
+  // 로그를 단계에 붙인다 — **단계 이름이 문장에 등장한 항목만**. 나머지는 버리지 않고 전체 로그에 남는다.
+  function phaseLogs(p) {
+    var phases = p.phases || [], logs = p.log || [];
+    var byPhase = {}, used = {};
+    logs.forEach(function (l, li) {
+      var msg = String(l.message || ""), hitIdx = -1;
+      phases.forEach(function (ph, i) { if (ph && msg.indexOf(ph) >= 0) hitIdx = i; }); // 마지막 언급 단계에 붙인다
+      if (hitIdx >= 0) { (byPhase[hitIdx] = byPhase[hitIdx] || []).push(l); used[li] = 1; }
+    });
+    return { byPhase: byPhase, usedN: Object.keys(used).length };
+  }
   function projectDetailHTML(p) {
     var phases = p.phases || [];
     var curIdx = p.done ? phases.length : phases.indexOf(p.phase);
     var steps = "";
     if (phases.length) {
-      steps = '<div class="stepper" role="list" aria-label="진행 단계">';
+      // 정적 칩 → 단계 타임라인. 각 단계에 그 단계를 언급한 로그를 붙여 "무슨 일이 있었는지"까지 읽히게 한다.
+      var pl = phaseLogs(p);
+      steps = '<ul class="ptl" aria-label="진행 단계 타임라인">';
       phases.forEach(function (ph, i) {
         var cls = p.done ? "past" : ((i === curIdx) ? "active" : (curIdx > -1 && i < curIdx ? "past" : "future"));
-        var mk = cls === "past" ? '<span class="mk" aria-hidden="true">✓</span>' : "";
-        steps += '<span class="step ' + cls + '" role="listitem">' + mk + esc(ph) + (cls === "active" ? " · 진행" : "") + '</span>';
+        var mine = pl.byPhase[i] || [];
+        var logHTML = mine.length
+          ? '<ul class="plog">' + mine.map(function (l) {
+              return '<li><span class="lt">' + esc(l.time || "") + '</span><span>' + esc(l.message) + '</span></li>';
+            }).join("") + '</ul>'
+          : "";
+        steps += '<li class="' + cls + '"><span class="nd" aria-hidden="true"></span>' +
+          '<span class="ph">' + esc(ph) + '</span>' +
+          '<span class="phm">' + (cls === "active" ? "진행 중" : cls === "past" ? "지남" : "예정") +
+            (mine.length ? " · 로그 " + mine.length : "") + '</span>' + logHTML + '</li>';
       });
-      steps += '</div>';
+      steps += '</ul>';
     }
 
     var hasMembers = (p.members || []).length > 0;
     var hasLog = (p.log || []).length > 0;
 
     // 산출물: 직접 outputs → 없으면 완료 프로젝트는 records.projects 슬러그 매칭
-    var outItems = (p.outputs || []), outSource = "direct";
-    if (!outItems.length && p.done) { outItems = matchedOutputs(p); outSource = outItems.length ? "matched" : "none"; }
+    var outItems = (p.outputs || []), outSource = "direct", matchInfo = null;
+    if (!outItems.length && p.done) {
+      matchInfo = matchProject(p);
+      outItems = matchInfo.items;
+      outSource = outItems.length ? "matched" : "none";
+    }
+    // outputs 가 문자열 배열일 수 있다(계약 허용) — outListHTML 은 {path} 를 기대한다
+    outItems = outItems.map(function (o) { return (typeof o === "string") ? { path: o } : o; });
     var outsBlock;
     if (outItems.length) {
       outsBlock = '<div class="sub-h">산출물 · ' + outItems.length + '건' +
-        (outSource === "matched" ? ' <span style="font-weight:400;color:var(--g-fg-subtle)">· 기록에서 연결</span>' : '') + '</div>' + outListHTML(outItems);
+        (outSource === "matched" ? ' <span style="font-weight:400;color:var(--g-fg-subtle)">· 기록에서 연결(추정)</span>' : '') + '</div>' +
+        outListHTML(outItems) +
+        // 추정 매칭이면 근거를 밝힌다 — 오매칭을 사용자가 알아챌 수 있어야 한다
+        (outSource === "matched" && matchInfo
+          ? '<div class="match-why">이 목록은 상태 파일에 산출물 경로가 없어 <code>' + esc(matchInfo.slug || "") +
+            '</code> 폴더를 ' + (matchInfo.hits.length
+              ? '제목 낱말 ‘' + esc(matchInfo.hits.join("’ · ‘")) + '’ 일치로'
+              : esc(matchInfo.why) + ' 로') +
+            ' 연결한 <b>추정</b>이에요. 다르면 기록 탭에서 직접 확인하세요.</div>'
+          : "");
     } else if (p.done) {
       outsBlock = '<div class="sub-h">산출물</div>' +
         '<div class="empty" style="padding:var(--g-space-5)"><span class="em">🗂️</span>이 프로젝트의 산출물은 <a class="more" href="#records" style="color:var(--g-brand-fg)">기록 탭</a>에서 볼 수 있어요.</div>';
@@ -1459,21 +2291,36 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
       var mem = "";
       (p.members || []).forEach(function (m) {
         var ms = MSTAT_LABEL[m.status] ? m.status : "waiting";
-        mem += '<div class="member"><span class="m-role">' + esc(m.role) + '</span>' +
-          '<span class="m-task">' + esc(m.task) + '</span>' +
+        var st = staffForMember(m);   // 실제 직원과 연결 — 역할만 나열되던 줄에 사람이 보이게
+        mem += '<div class="member">' +
+          '<span class="m-who">' + (st ? avatarHTML(st, st.name, "") : "") + '</span>' +
+          '<span class="m-role">' + esc(st ? st.name : m.role) + '</span>' +
+          '<span class="m-task">' + esc(m.task) + (st ? ' <span style="color:var(--g-fg-subtle)">· ' + esc(m.role) + '</span>' : '') + '</span>' +
           '<span class="mstat ' + ms + '">' + esc(MSTAT_LABEL[ms]) + '</span></div>';
       });
       if (!mem) mem = '<div class="empty" style="padding:var(--g-space-5)"><span class="em">🧑‍🤝‍🧑</span>등록된 멤버가 없어요.</div>';
+      // 전체 로그 — 6건 중 3건만 보이고 나머지를 볼 길이 없던 결함 해소(접힘으로 전량 열람)
       var log;
       if (hasLog) {
-        log = '<ul class="rows timeline">';
-        p.log.slice(-3).forEach(function (l) { log += '<li><span class="t-time">' + esc(l.time) + '</span><span class="t-text">' + esc(l.message) + '</span></li>'; });
-        log += '</ul>';
+        var lg = p.log.slice().reverse();
+        var head = lg.slice(0, 3), rest = lg.slice(3);
+        log = '<ul class="rows timeline">' + head.map(function (l) {
+          return '<li><span class="t-time">' + esc(l.time) + '</span><span class="t-text">' + esc(l.message) + '</span></li>';
+        }).join("") + '</ul>';
+        if (rest.length) {
+          log += '<div class="fold" style="margin-top:var(--g-space-2)">' +
+            '<button class="fold-h" type="button" data-fold="proj-log" aria-expanded="' + (openSet["fold-proj-log"] ? "true" : "false") + '" aria-controls="fold-proj-log">' +
+            '<span class="tw" aria-hidden="true">›</span>이전 로그<span class="n">' + rest.length + '건</span></button>' +
+            '<div class="fold-b" id="fold-proj-log"' + (openSet["fold-proj-log"] ? "" : " hidden") + '>' +
+            '<ul class="rows timeline">' + rest.map(function (l) {
+              return '<li><span class="t-time">' + esc(l.time) + '</span><span class="t-text">' + esc(l.message) + '</span></li>';
+            }).join("") + '</ul></div></div>';
+        }
       } else {
         log = '<div class="empty" style="padding:var(--g-space-5)"><span class="em">🗒️</span>기록된 로그가 없어요.</div>';
       }
       teamLogBlock = '<div class="sub-h">팀 멤버 · ' + (p.members || []).length + '명</div>' + mem +
-        '<div class="sub-h">최근 로그</div>' + log;
+        '<div class="sub-h">진행 로그 · ' + (p.log || []).length + '건</div>' + log;
     }
 
     var summaryBlock = p.summary ? '<p class="hi-sub" style="margin-top:0;margin-bottom:var(--g-space-5)">' + esc(p.summary) + '</p>' : '';
@@ -1497,6 +2344,113 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
     for (var h = 0; h < hist.length; h++) { var hm = hist[h].members || []; for (var j = 0; j < hm.length; j++) if (hm[j].role === name) return hist[h].goal; }
     return null;
   }
+  // 역할 md 에서 "산출물" 절의 항목을 뽑는다 — 채용 전 '?' 벽 대신 이 직무가 무엇을 만드는지 보여준다.
+  // 만들어내지 않는다: 역할 파일에 그 절이 없으면 빈 값을 반환하고 화면은 focus 만 쓴다.
+  function roleOutputsPreview(r) {
+    var src = r && r.content;
+    if (!src) return [];
+    var lines = String(src).split("\n");
+    var out = [], inSec = false;
+    for (var i = 0; i < lines.length; i++) {
+      var L = lines[i].trim();
+      if (/^#{1,4}\s/.test(L)) { inSec = /산출물|만드는|deliver/i.test(L); continue; }
+      if (!inSec) continue;
+      // 역할 파일 규약: `- **산출물명**: 설명`. 굵은 라벨만 뽑는다.
+      // "이 산출물은 …의 입력이다" 같은 하류 안내 항목은 산출물명이 아니므로 제외한다.
+      var m = L.match(/^[-*]\s+\*\*(.+?)\*\*\s*[:：]?/);
+      if (!m) continue;
+      var txt = m[1].replace(/[`*]/g, "").trim();
+      if (!txt || txt.length > 24) continue;
+      if (/^이 산출물|입력이다|입력이/.test(txt)) continue;
+      out.push(txt);
+      if (out.length >= 3) break;
+    }
+    return out;
+  }
+
+  // 관계 지도 — staff[].relationships 를 원형 배치 그래프로. 이름은 직접 라벨(색만으로 식별하지 않는다).
+  function relmapHTML() {
+    var nodes = staffList.filter(function (st) { return st && st.name; });
+    if (nodes.length < 3) return "";
+    var edges = [];
+    var seen = {};
+    nodes.forEach(function (st, i) {
+      (st.relationships || []).forEach(function (rl) {
+        var other = staffById[rl.with] || staffByName[rl.with];
+        if (!other || !other.name) return;
+        var j = -1;
+        nodes.forEach(function (n, k) { if (n.name === other.name) j = k; });
+        if (j < 0 || j === i) return;
+        var key = [Math.min(i, j), Math.max(i, j), rl.type].join("-");
+        if (seen[key]) return;
+        seen[key] = 1;
+        edges.push({ a: i, b: j, type: rl.type === "tension" ? "tension" : "fit", note: rl.note || "" });
+      });
+    });
+    if (!edges.length) return "";
+    var projLive = (proj && proj.status !== "done") ? proj : null;
+    var dutyNames = {};
+    if (projLive) (projLive.members || []).forEach(function (m) { if (m.name) dutyNames[m.name] = 1; });
+
+    var W = 320, H = 250, cx = W / 2, cy = H / 2 - 4, R = 92;
+    var pos = nodes.map(function (st, i) {
+      var ang = (-Math.PI / 2) + (i / nodes.length) * Math.PI * 2;
+      return { x: cx + Math.cos(ang) * R, y: cy + Math.sin(ang) * R, ang: ang, st: st };
+    });
+    var edgeSVG = edges.map(function (e) {
+      var A = pos[e.a], B = pos[e.b];
+      var tip = A.st.name + " ↔ " + B.st.name + " · " + (e.type === "tension" ? "긴장" : "합") + (e.note ? " — " + e.note : "");
+      // 중심을 향해 살짝 휘게 — 직선이 겹쳐 읽히지 않는 문제 회피
+      var mx = (A.x + B.x) / 2, my = (A.y + B.y) / 2;
+      var qx = mx + (cx - mx) * 0.35, qy = my + (cy - my) * 0.35;
+      return '<path class="edge ' + e.type + '" d="M' + A.x.toFixed(1) + ' ' + A.y.toFixed(1) +
+        ' Q' + qx.toFixed(1) + ' ' + qy.toFixed(1) + ' ' + B.x.toFixed(1) + ' ' + B.y.toFixed(1) + '"' +
+        ' data-tip="' + esc(tip) + '"><title>' + esc(tip) + '</title></path>';
+    }).join("");
+    var nodeSVG = pos.map(function (p) {
+      var duty = dutyNames[p.st.name] ? " duty" : "";
+      var lx = cx + Math.cos(p.ang) * (R + 24), ly = cy + Math.sin(p.ang) * (R + 24);
+      var anchor = Math.abs(lx - cx) < 12 ? "middle" : (lx > cx ? "start" : "end");
+      var tip = p.st.name + (p.st.role ? " · " + p.st.role : "") + (dutyNames[p.st.name] ? " · 소집 중" : "");
+      return '<circle class="node' + duty + '" cx="' + p.x.toFixed(1) + '" cy="' + p.y.toFixed(1) + '" r="9"' +
+          ' data-tip="' + esc(tip) + '"><title>' + esc(tip) + '</title></circle>' +
+        '<text class="nm" x="' + lx.toFixed(1) + '" y="' + (ly + 3).toFixed(1) + '" text-anchor="' + anchor + '">' + esc(p.st.name) + '</text>';
+    }).join("");
+    return '<section class="card" aria-labelledby="relmap-h">' +
+      '<h2 class="card-title" id="relmap-h">팀 관계 지도 <span class="count">· 합·긴장 ' + edges.length + '쌍</span></h2>' +
+      '<svg class="relmap" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="팀원 사이의 합·긴장 관계 ' + edges.length + '쌍">' +
+      edgeSVG + nodeSVG + '</svg>' +
+      '<div class="rel-legend"><span><i class="fit"></i>합이 잘 맞음</span><span><i class="tension"></i>긴장(관점 충돌)</span></div>' +
+      '<div class="heat-sum">긴장은 나쁜 게 아니라 서로 다른 관점이 부딪히는 지점이에요 — 그 지점에서 검증이 일어나요.</div>' +
+      '</section>';
+  }
+
+  // 편성 이력 — 진행 중 + 완료 프로젝트별 참여. members 가 없는 이력은 요약만 정직하게 보여준다.
+  function rosterHistoryHTML() {
+    var rows = [];
+    if (proj) {
+      rows.push({
+        goal: proj.goal, date: ymd(proj.startedAt), live: proj.status !== "done",
+        who: (proj.members || []).map(function (m) { var st = staffForMember(m); return st ? st.name : m.role; })
+      });
+    }
+    (team.history || []).forEach(function (h) {
+      rows.push({
+        goal: h.goal, date: ymd(h.completedAt || h.startedAt), live: false,
+        who: (h.members || []).map(function (m) { var st = staffForMember(m); return st ? st.name : m.role; })
+      });
+    });
+    if (!rows.length) return "";
+    return '<section class="card" aria-labelledby="rh-h">' +
+      '<h2 class="card-title" id="rh-h">편성 이력 <span class="count">· ' + rows.length + '건</span>' +
+      '<a class="more" href="#project">프로젝트 탭 →</a></h2>' +
+      '<ul class="hist-list">' + rows.map(function (r) {
+        return '<li><span class="hd">' + esc(r.date || "") + '</span>' +
+          '<span class="hg">' + esc(r.goal) + (r.live ? ' <span class="chip accent">진행 중</span>' : '') + '</span>' +
+          '<span class="hm">' + (r.who.length ? esc(r.who.join(" · ")) : '<span style="color:var(--g-fg-subtle)">당시 편성은 따로 남지 않았어요</span>') + '</span></li>';
+      }).join("") + '</ul></section>';
+  }
+
   // ── 우리 팀 (roster 역할 카드) — 프로젝트 목록 하단에 렌더 ───
   function renderTeam() {
     var roles = rosterRoles;
@@ -1549,11 +2503,18 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
           '<div class="staff-id"><span class="staff-name muted">채용 대기</span>' +
           '<span class="staff-role">' + esc(r.name) + '</span></div></div>';
       var hint = '<span class="role-more" aria-hidden="true">' + (st ? '직원 카드 ›' : '역할 카드 ›') + '</span>';
+      // 채용 전: '?' 만 8장 늘어서던 정보량 0 상태 → 이 직무가 실제로 만드는 산출물을 미리 보여준다
+      var pre = "";
+      if (!st) {
+        var outs = roleOutputsPreview(r);
+        if (outs.length) pre = '<div class="role-pre"><b>만드는 것</b> · ' + esc(outs.join(" · ")) + '</div>';
+        else if (r.outputsTotal != null) pre = '<div class="role-pre"><b>표준 산출물</b> · ' + r.outputsTotal + '종</div>';
+      }
       return '<button class="role-card' + ((st || duty) ? '' : ' idle') + '" type="button" data-role="' + key + '"' +
         ' aria-label="' + esc(st ? st.name + ' 직원 상세 보기' : r.name + ' 역할 상세 보기') + '">' +
         who +
         '<div class="role-focus">' + esc(r.focus || "") + (outBadge ? ' ' + outBadge : '') + '</div>' +
-        stateLine + hint + '</button>';
+        pre + stateLine + hint + '</button>';
     }).join("");
 
     var grid = '<section class="card" aria-labelledby="team-h"><h2 class="card-title" id="team-h">우리 팀 <span class="count">· ' +
@@ -1561,8 +2522,9 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
       '<div class="roster">' + cards + '</div></section>';
     return panelWrap("team",
       hired ? "우리 회사에 재직 중인 팀원들이에요. 카드를 누르면 성향·관계·직무 기준을 볼 수 있어요."
-            : "프로젝트를 맡기면 필요한 팀원이 소집돼요.",
-      head + grid);
+            : "프로젝트를 맡기면 필요한 팀원이 소집돼요. 카드에 각 직무가 만드는 산출물이 미리 보여요.",
+      // 관계 지도는 정사각에 가까워 풀폭 카드에서 죽은 폭이 크다 — 편성 이력과 2단으로 폭을 회수한다
+      head + grid + (hired ? '<div class="split">' + relmapHTML() + rosterHistoryHTML() + '</div>' : ""));
   }
   // 역할 카드 클릭 → 모달: 스태프가 있으면 "{이름} — {역할}" 직원 모달, 없으면 역할 md 모달
   function openRole(key) {
@@ -1630,20 +2592,51 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
           '</span></button>';
       }
     }
-    function col(label, dotCls, list, key, empty) {
-      var body = list.length ? list.map(function (c) { return card(c, key); }).join("")
-        : '<div class="kempty"><span class="em">🌱</span>' + esc(empty) + '</div>';
-      return '<section class="kcol" aria-label="' + esc(label) + '">' +
-        '<div class="kcol-head"><span class="dotc ' + dotCls + '"></span>' + esc(label) +
-          '<span class="kn">' + list.length + '</span></div>' +
-        '<div class="kcards">' + body + '</div></section>';
+    // 필터: 카드 종류별. 열 구조(대기·진행·완료)는 유지하고 내용만 걸러 흐름 판독을 지킨다.
+    function keep(c) {
+      if (kanFilter === "all") return true;
+      if (kanFilter === "member") return c.type === "member";
+      return c.type === "todo" && c.t.kind === kanFilter;
     }
+    function col(label, dotCls, list, key, empty, opt) {
+      opt = opt || {};
+      var shown = list.filter(keep);
+      var body = shown.length ? shown.map(function (c) { return card(c, key); }).join("")
+        : '<div class="kempty"><span class="em">🌱</span>' + esc(shown.length === list.length ? empty : "이 필터에 해당하는 카드가 없어요.") + '</div>';
+      // 부하 표시: WIP 상한은 상태 파일에 없으므로 **지어내지 않는다**. 대신 실측 가능한 '지난 기한 N건' 을 경고로 쓴다.
+      var od = shown.filter(function (c) { return c.type === "todo" && c.t.state !== "done" && bucket(c.t) === "past"; }).length;
+      var loadHTML = od ? '<span class="kload" title="기한이 지난 카드">지남 ' + od + '</span>' : "";
+      var foldable = opt.foldable && shown.length > 0;
+      var inner = foldable
+        ? '<button class="fold-h" type="button" data-fold="kan-' + key + '" style="border-top:0;padding-top:0" aria-expanded="' +
+            (openSet["fold-kan-" + key] ? "true" : "false") + '" aria-controls="fold-kan-' + key + '">' +
+            '<span class="tw" aria-hidden="true">›</span>' + esc(opt.foldLabel || "펼치기") + '<span class="n">' + shown.length + '건</span></button>' +
+          '<div class="fold-b" id="fold-kan-' + key + '"' + (openSet["fold-kan-" + key] ? "" : " hidden") + '>' + body + '</div>'
+        : body;
+      return '<section class="kcol' + (od ? " hot" : "") + '" aria-label="' + esc(label) + '">' +
+        '<div class="kcol-head"><span class="dotc ' + dotCls + '"></span>' + esc(label) +
+          '<span class="kn">' + shown.length + (shown.length !== list.length ? " / " + list.length : "") + '</span>' + loadHTML + '</div>' +
+        '<div class="kcards">' + inner + '</div></section>';
+    }
+    function kchip(v, label, n) {
+      return '<button class="fchip" type="button" data-kf="' + v + '" aria-pressed="' + (kanFilter === v ? "true" : "false") + '">' +
+        esc(label) + (n != null ? '<span class="n">' + n + '</span>' : '') + '</button>';
+    }
+    var memberN = ((proj && proj.members) || []).length;
+    var fbar = '<div class="fbar"><span class="fgroup" role="group" aria-label="카드 종류 필터">' +
+      kchip("all", "전체", m.waiting.length + m.doing.length + m.done.length) +
+      kchip("reminder", "리마인더", todos.filter(function (t) { return t.kind === "reminder"; }).length) +
+      kchip("issue", "이슈", todos.filter(function (t) { return t.kind === "issue"; }).length) +
+      (memberN ? kchip("member", "멤버 작업", memberN) : "") +
+      '</span><span class="fresult">열마다 따로 스크롤돼요</span></div>';
+    // "완료 · 오늘" → "완료". 상태 파일에 완료 시각이 없으므로 '오늘' 이라고 단정할 수 없다(정직).
     var board = '<div class="kanban">' +
       col("대기", "wait", m.waiting, "w", "대기 중인 카드가 없어요.") +
       col("진행 중", "doing", m.doing, "d", "진행 중인 카드가 없어요.") +
-      col("완료 · 오늘", "done", m.done, "c", "오늘 마무리한 카드는 아직 없어요. 진행 중 " + m.doing.length + "건이 순항하고 있어요.") +
+      col("완료", "done", m.done, "c", "완료 처리된 카드가 아직 없어요. 진행 중 " + m.doing.length + "건이 순항하고 있어요.",
+          { foldable: m.done.length > 4, foldLabel: "완료 목록" }) +
     '</div>';
-    return panelWrap("kanban", "오늘 일의 흐름을 한눈에 봐요. 읽기 전용이라 드래그는 없고, 티켓을 누르면 상세가 모달로 열려요.", board);
+    return panelWrap("kanban", "오늘 일의 흐름을 한눈에 봐요. 읽기 전용이라 드래그는 없고, 티켓을 누르면 상세가 모달로 열려요.", fbar + board);
   }
 
   // ── 기록 탭 (2단: 폴더 토글 트리 | 리딩 페인) ──────────────
@@ -1711,10 +2704,50 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
       ? '<div class="rec-group"><div class="rec-nav-head">프로젝트 산출물</div>' +
           slugs.map(function (sl) { return folderRow("proj:" + sl, sl.replace(/^\d{4}-\d{2}-/, ""), tprojects[sl] || []); }).join("") + '</div>'
       : "";
-    var treeInner = recentHTML + notesHTML + projHTML;
-    var hasAny = recent.length || slugs.length || REC_ORDER.some(function (k) { return (tnotes[k] || []).length; });
-    if (!hasAny) treeInner = '<div class="empty"><span class="em">🗂️</span>아직 쌓인 기록이 없어요.<br>텔레그램에서 파트너에게 말을 걸면 여기에 채워져요.</div>';
-    var treeEl = '<aside class="card rec-tree" aria-label="기록 폴더">' + treeInner + '</aside>';
+    // ── 전문 검색: 질의가 있으면 폴더 아코디언 대신 **폴더를 가로지르는 결과 목록** 을 보여준다.
+    //    (아코디언 단일 펼침 규약은 유지 — 여러 폴더를 동시에 봐야 하는 요구는 검색이 받는다)
+    var q = recQuery.trim(), qLow = q.toLowerCase();
+    var searchHTML = '<div class="rec-group" style="padding-bottom:var(--g-space-2)">' +
+      '<span class="fsearch" style="max-width:none;display:block">' +
+      '<input id="rec-q" type="search" placeholder="기록 전문 검색" value="' + esc(recQuery) + '" aria-label="기록 전문 검색" autocomplete="off">' +
+      (q ? '<button class="fx" type="button" data-rf-clear aria-label="검색 지우기">✕</button>' : '') +
+      '</span></div>';
+
+    var treeInner;
+    if (q) {
+      var hits = allRecords().map(function (f) {
+        var e = contentByPath[f.path] || {};
+        var body = e.content ? String(e.content) : (e.table ? (e.table || []).map(function (r) { return (r || []).join(" "); }).join("\n") : "");
+        var inTitle = String(f.title || "").toLowerCase().indexOf(qLow) >= 0;
+        var bLow = body.toLowerCase(), inBody = bLow.indexOf(qLow) >= 0;
+        if (!inTitle && !inBody) return null;
+        var nHit = 0, at = 0, ix;
+        while ((ix = bLow.indexOf(qLow, at)) >= 0) { nHit++; at = ix + qLow.length; }
+        return { f: f, inTitle: inTitle, nHit: nHit, snip: inBody ? snippetOf(body, qLow) : "" };
+      }).filter(Boolean).sort(function (a, b) {
+        return (b.inTitle ? 1 : 0) - (a.inTitle ? 1 : 0) || b.nHit - a.nHit ||
+          String(b.f.date || "").localeCompare(String(a.f.date || ""));
+      });
+      if (hits.length) {
+        treeInner = '<div class="rec-group"><div class="rec-nav-head">검색 결과 · ' + hits.length + '건</div><ul class="rec-recent">' +
+          hits.map(function (h) {
+            var sel = h.f.path === curFile;
+            return '<li><button class="rec-recent-row' + (sel ? ' sel' : '') + '" type="button" data-rec-file="' + esc(h.f.path) + '"' + (sel ? ' aria-current="true"' : '') + '>' +
+              '<span class="rec-kind" aria-hidden="true">' + (KIND_ICON[h.f.kind] || "▤") + '</span>' +
+              '<span class="rec-rmain"><span class="rec-name">' + hlm(h.f.title || basename(h.f.path), [q]) + '</span>' +
+                '<span class="rec-src">' + esc(recSrcLabel(h.f.fk) || "") + (h.nHit ? ' · 본문 ' + h.nHit + '회' : '') + '</span>' +
+                (h.snip ? '<span class="rec-src">' + hlm(h.snip, [q]) + '</span>' : '') + '</span>' +
+              '<span class="rec-date">' + esc(ymd(h.f.date)) + '</span></button></li>';
+          }).join("") + '</ul></div>';
+      } else {
+        treeInner = '<div class="empty rec-search-empty"><span class="em">🔍</span>‘' + esc(q) + '’ 가 들어간 기록이 없어요.<br>낱말을 줄여 보세요.</div>';
+      }
+    } else {
+      treeInner = recentHTML + notesHTML + projHTML;
+      var hasAny = recent.length || slugs.length || REC_ORDER.some(function (k) { return (tnotes[k] || []).length; });
+      if (!hasAny) treeInner = '<div class="empty"><span class="em">🗂️</span>아직 쌓인 기록이 없어요.<br>텔레그램에서 파트너에게 말을 걸면 여기에 채워져요.</div>';
+    }
+    var treeEl = '<aside class="card rec-tree" aria-label="기록 폴더">' + searchHTML + treeInner + '</aside>';
 
     // ── 우: 리딩 페인 (주인공) — 본문을 모달 없이 그 자리에서 렌더 ──
     var read;
@@ -1723,9 +2756,38 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
       var meta = fileMeta[curFile] || {};
       var src = recSrcLabel(meta.fk), dt = meta.date ? ymd(meta.date) : "";
       var metaLine = (src ? esc(src) : "") + (src && dt ? " · " : "") + (dt ? esc(dt) : "");
-      var body = entry.table ? tableHTML(entry.table)
-        : entry.content ? '<div class="md-body">' + renderMarkdown(entry.content) + '</div>'
+      var heads = [];
+      var body = entry.table ? tableHTML(entry.table, true)
+        : entry.content ? '<div class="md-body">' + renderMarkdown(entry.content, heads) + '</div>'
         : '<div class="empty"><span class="em">📄</span>이 파일은 미리보기가 준비되지 않았어요.<br>‘파일로 이동’으로 원본을 여세요.</div>';
+      // 목차 — 긴 노트에서 어디가 어디인지 보이게 (2단 이상일 때만)
+      var tocHTML = "";
+      var tocable = heads.filter(function (h) { return h.lv <= 3; });
+      if (tocable.length >= 3) {
+        tocHTML = '<nav class="toc" aria-label="이 문서 목차"><div class="toc-h">목차</div><ul>' +
+          tocable.map(function (h) {
+            return '<li><a class="' + (h.lv >= 3 ? "d2" : "") + '" href="#' + h.id + '">' + esc(h.text) + '</a></li>';
+          }).join("") + '</ul></nav>';
+      }
+      // 백링크 — 이 기록을 참조하는 할 일·프로젝트 + 같은 폴더의 형제 산출물.
+      // 역방향 링크는 폴더 구조로 표현할 수 없다 → 이 화면이 파일 탐색기를 이기는 지점.
+      var bl = backlinksOf(curFile), sib = siblingsOf(curFile);
+      var blHTML = "";
+      if (bl.length || sib.length) {
+        var chips = bl.map(function (x) {
+          if (x.k === "todo") {
+            return '<button class="xlink" type="button" data-todo-jump="' + esc(x.v) + '">' +
+              '<span class="ic" aria-hidden="true">☑</span><span class="tx">' + esc(x.t) + '</span></button>';
+          }
+          return '<button class="xlink" type="button" data-project-open="' + esc(x.v) + '">' +
+            '<span class="ic" aria-hidden="true">◐</span><span class="tx">' + esc(x.t) + '</span></button>';
+        }).concat(sib.map(function (f) {
+          return '<button class="xlink" type="button" data-rec-file="' + esc(f.path) + '">' +
+            '<span class="ic" aria-hidden="true">▤</span><span class="tx">' + esc(f.title || basename(f.path)) + '</span></button>';
+        })).join("");
+        blHTML = '<div class="xlink-h">이 기록을 참조하는 곳 · ' + (bl.length + sib.length) + '건</div>' +
+          '<div class="xlinks">' + chips + '</div>';
+      }
       read = '<section class="card rec-read" aria-labelledby="rd-h">' +
         '<div class="rec-read-head"><div class="rec-read-id">' +
           '<span class="rec-read-kind" aria-hidden="true">' + (KIND_ICON[meta.kind] || "▤") + '</span>' +
@@ -1735,13 +2797,49 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
         '<span class="acts">' +
           '<a class="g-btn g-btn--secondary g-btn--sm" href="' + esc(curFile) + '" target="_blank" rel="noopener" data-goto>파일로 이동 ↗</a>' +
           '<button class="g-btn g-btn--secondary g-btn--sm" type="button" data-copy="' + esc(curFile) + '" aria-label="경로 복사">⧉</button>' +
-        '</span></div>' + body + '</section>';
+        '</span></div>' +
+        (q ? '<div class="rec-hitline" id="rec-hitline"></div>' : '') +
+        '<div class="rec-read-body' + (tocHTML ? " has-toc" : "") + '"><div id="rec-read-main" style="min-width:0">' + body + '</div>' + tocHTML + '</div>' +
+        blHTML + '</section>';
     } else {
       read = '<section class="card rec-read"><div class="empty"><span class="em">📄</span>왼쪽에서 파일을 고르면 여기에 내용이 바로 보여요.</div></section>';
     }
 
-    var content = '<div class="rec-split">' + treeEl + read + '</div>';
-    return panelWrap("records", "왼쪽 폴더를 열어 파일을 고르면 내용이 오른쪽에서 바로 열려요.", content);
+    var content = '<div id="rec-body" class="rec-split">' + treeEl + read + '</div>';
+    return panelWrap("records",
+      "왼쪽에서 파일을 고르면 내용이 오른쪽에서 바로 열려요. 검색하면 폴더를 가로질러 본문까지 찾아요.", content);
+  }
+  // 기록 탭: 검색 입력만 살리고 트리·리딩 페인을 다시 그린다 (포커스·커서 보존)
+  function paintRecBody() {
+    var host = document.getElementById("rec-body");
+    if (!host) return;
+    var keep = document.getElementById("rec-q");
+    var caret = keep ? keep.selectionStart : null;
+    var html = renderRecords();
+    var tmp = document.createElement("div");
+    tmp.innerHTML = html;
+    var fresh = tmp.querySelector("#rec-body");
+    if (fresh) host.innerHTML = fresh.innerHTML;
+    afterRecPaint();
+    var again = document.getElementById("rec-q");
+    if (again) {
+      again.focus();
+      if (caret != null) { try { again.setSelectionRange(caret, caret); } catch (e) {} }
+    }
+  }
+  // 리딩 페인 본문에 검색어 강조를 입힌다 (DOM 텍스트 노드만 — HTML 문자열을 건드리지 않는다)
+  function afterRecPaint() {
+    var q = recQuery.trim();
+    if (!q) return;
+    var main = document.getElementById("rec-read-main");
+    if (!main) return;
+    var n = highlightIn(main, q);
+    var line = document.getElementById("rec-hitline");
+    if (line) {
+      line.innerHTML = n
+        ? '이 문서에서 <b>' + n + '</b>곳 일치 — 노란 표시를 따라가 보세요.'
+        : '이 문서 본문에는 ‘' + esc(q) + '’ 가 없어요 (제목·경로로 걸렸어요).';
+    }
   }
 
   // 패널 래퍼
@@ -1837,6 +2935,9 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
       var back = slotEl.querySelector("[" + fkey + "]");
       if (back && back.focus) { try { back.focus({ preventScroll: true }); } catch (e) { try { back.focus(); } catch (e2) {} } }
     }
+    // 페인트 뒤 후처리 — 필터 카운트·검색 강조·점프 대상 펼침
+    if (activeTab === "todos") { paintTodoList(); focusPendingTodo(); }
+    if (activeTab === "records") { afterRecPaint(); }
   }
 
   function renderAll() {
@@ -1908,13 +3009,77 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
     lastFocus = null;
   }
   // 표 데이터(csv/xlsx 임베드) → GYEOL 표 (첫 행 = 헤더)
-  function tableHTML(rows) {
+  // 표: sortable=true 면 머리글 클릭 정렬 + 행 검색바. 숫자면 수치 비교, 아니면 문자 비교.
+  function tableHTML(rows, sortable) {
     if (!rows || !rows.length) return '<div class="empty"><span class="em">▦</span>표가 비어 있어요.</div>';
-    var head = '<tr>' + rows[0].map(function (c) { return '<th>' + esc(c) + '</th>'; }).join("") + '</tr>';
-    var body = rows.slice(1).map(function (r) {
+    var head = '<tr>' + rows[0].map(function (c, ci) {
+      if (!sortable) return '<th>' + esc(c) + '</th>';
+      var on = tableSort.col === ci;
+      return '<th class="srt" data-sort="' + ci + '" role="button" tabindex="0"' +
+        ' aria-sort="' + (on ? (tableSort.dir > 0 ? "ascending" : "descending") : "none") + '">' +
+        esc(c) + (on ? '<span class="ar" aria-hidden="true">' + (tableSort.dir > 0 ? "▲" : "▼") + '</span>' : '') + '</th>';
+    }).join("") + '</tr>';
+    var data = rows.slice(1);
+    if (sortable && tableSort.col >= 0) {
+      var ci2 = tableSort.col, dir = tableSort.dir;
+      data = data.slice().sort(function (a, b) {
+        var x = a[ci2] == null ? "" : String(a[ci2]), y = b[ci2] == null ? "" : String(b[ci2]);
+        var nx = parseFloat(x.replace(/[,\s원%]/g, "")), ny = parseFloat(y.replace(/[,\s원%]/g, ""));
+        var both = !isNaN(nx) && !isNaN(ny);
+        var r = both ? (nx - ny) : x.localeCompare(y, "ko");
+        return dir > 0 ? r : -r;
+      });
+    }
+    var body = data.map(function (r) {
       return '<tr>' + r.map(function (c) { return '<td class="g-num">' + esc(c) + '</td>'; }).join("") + '</tr>';
     }).join("");
-    return '<div class="tbl-wrap"><table class="rec-table"><thead>' + head + '</thead><tbody>' + body + '</tbody></table></div>';
+    var bar = sortable
+      ? '<div class="rec-tbl-bar"><span class="fsearch" style="max-width:220px">' +
+        '<input id="rec-tbl-q" type="search" placeholder="표 안에서 찾기" aria-label="표 검색" autocomplete="off"></span>' +
+        '<span class="fresult" id="rec-tbl-count">' + data.length + '행</span></div>'
+      : "";
+    return bar + '<div class="tbl-wrap"><table class="rec-table"><thead>' + head + '</thead><tbody>' + body + '</tbody></table></div>';
+  }
+  // 표 검색: 행을 다시 그리지 않고 감춘다 — 입력 포커스를 지킨다
+  function paintRecTable(q) {
+    var tb = document.querySelector(".rec-read .rec-table tbody");
+    if (!tb) return;
+    var rows = tb.rows, needle = String(q || "").trim().toLowerCase(), shown = 0;
+    for (var i = 0; i < rows.length; i++) {
+      var hit = !needle || (rows[i].textContent || "").toLowerCase().indexOf(needle) >= 0;
+      if (hit) { rows[i].removeAttribute("hidden"); shown++; } else { rows[i].setAttribute("hidden", ""); }
+    }
+    var c = document.getElementById("rec-tbl-count");
+    if (c) c.innerHTML = needle ? '<b>' + shown + '</b>행 / 전체 ' + rows.length + '행' : rows.length + "행";
+  }
+  // 본문 일치 강조 — 렌더된 HTML 문자열을 건드리지 않고 **텍스트 노드만** 감싼다(태그 파손 방지)
+  function highlightIn(rootEl, term) {
+    if (!rootEl || !term) return 0;
+    var needle = String(term).trim().toLowerCase();
+    if (!needle) return 0;
+    var walker = document.createTreeWalker(rootEl, NodeFilter.SHOW_TEXT, null);
+    var targets = [], n;
+    while ((n = walker.nextNode())) {
+      if (!n.nodeValue || n.nodeValue.toLowerCase().indexOf(needle) < 0) continue;
+      if (n.parentNode && n.parentNode.nodeName === "MARK") continue;
+      targets.push(n);
+    }
+    var count = 0;
+    targets.forEach(function (node) {
+      var text = node.nodeValue, low = text.toLowerCase(), frag = document.createDocumentFragment(), at = 0, idx;
+      while ((idx = low.indexOf(needle, at)) >= 0) {
+        if (idx > at) frag.appendChild(document.createTextNode(text.slice(at, idx)));
+        var mk = document.createElement("mark");
+        mk.className = "hit";
+        mk.textContent = text.slice(idx, idx + needle.length);
+        frag.appendChild(mk);
+        at = idx + needle.length;
+        count++;
+      }
+      if (at < text.length) frag.appendChild(document.createTextNode(text.slice(at)));
+      node.parentNode.replaceChild(frag, node);
+    });
+    return count;
   }
   // 노트 속 링크 → 웹뷰 모달 (일부 사이트는 임베드를 막는다 — 정직 안내 + 새 탭 폴백 상시 제공)
   function openWebview(url) {
@@ -2322,6 +3487,49 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
     }
     // '파일로 이동'(data-goto) 은 순수 앵커 — 브라우저 기본 동작(새 탭)에 위임
     if (target.closest("[data-goto]")) return;
+    // ── 필터 칩 (할 일·칸반) — 목록만 부분 교체 ──
+    var fc = target.closest("[data-tf]");
+    if (fc) {
+      todoFilter[fc.getAttribute("data-tf")] = fc.getAttribute("data-tfv");
+      paintTodoList(); return;
+    }
+    if (target.closest("[data-tf-clear]")) {
+      todoFilter.q = "";
+      var qi = document.getElementById("todo-q"); if (qi) qi.value = "";
+      var fxb = document.querySelector("[data-tf-clear]"); if (fxb) fxb.remove();
+      paintTodoList(); return;
+    }
+    var kf = target.closest("[data-kf]");
+    if (kf) { kanFilter = kf.getAttribute("data-kf"); renderAll(); return; }
+    var rf2 = target.closest("[data-rf-clear]");
+    if (rf2) { recQuery = ""; renderAll(); return; }
+    // ── 접힘 섹션 (완료 목록·이전 로그 등) ──
+    var fd = target.closest("[data-fold]");
+    if (fd) {
+      var fkey2 = "fold-" + fd.getAttribute("data-fold");
+      var body = document.getElementById(fkey2);
+      var willOpen = !openSet[fkey2];
+      if (willOpen) openSet[fkey2] = 1; else delete openSet[fkey2];
+      fd.setAttribute("aria-expanded", willOpen ? "true" : "false");
+      if (body) { if (willOpen) body.removeAttribute("hidden"); else body.setAttribute("hidden", ""); }
+      return;
+    }
+    // ── 할 일로 점프 (홈 시간축 점 · 그다음 후보 · 백링크) ──
+    var tj = target.closest("[data-todo-jump]");
+    if (tj) {
+      var ti2 = tj.getAttribute("data-todo-jump");
+      openSet["todo-" + ti2] = 1;
+      pendingTodo = ti2;
+      if (activeTab !== "todos") location.hash = "#todos"; else { paintView(); focusPendingTodo(); }
+      return;
+    }
+    // ── 표 정렬 (기록 탭) ──
+    var ts = target.closest("[data-sort]");
+    if (ts) {
+      var ci = +ts.getAttribute("data-sort");
+      if (tableSort.col === ci) tableSort.dir = -tableSort.dir; else { tableSort.col = ci; tableSort.dir = 1; }
+      paintView(); return;
+    }
     // 펼침 토글 (할 일 / 아코디언 공용)
     var ex = target.closest("[data-exp]");
     if (ex) {
@@ -2339,8 +3547,92 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
     // 뷰어 본문 안의 외부 링크는 웹뷰 모달로 (그 외 앵커는 기본 동작)
     var a = e.target && e.target.closest ? e.target.closest("#modal-body .md-body a[href^='http'], .rec-read .md-body a[href^='http']") : null;
     if (a) { e.preventDefault(); openWebview(a.getAttribute("href")); return; }
+    // 목차 링크 — 해시를 건드리면 탭 라우터가 오작동한다. 기본 동작을 막고 직접 스크롤한다.
+    var tc = e.target && e.target.closest ? e.target.closest(".toc a[href^='#']") : null;
+    if (tc) {
+      e.preventDefault();
+      var tgt = document.getElementById((tc.getAttribute("href") || "").slice(1));
+      if (tgt) { try { tgt.scrollIntoView({ block: "start", behavior: "smooth" }); } catch (e2) { tgt.scrollIntoView(); } }
+      return;
+    }
     onActivate(e.target);
   });
+
+  // 점프해 온 할 일을 펼쳐서 화면에 보인다 (홈 시간축·백링크에서 진입)
+  function focusPendingTodo() {
+    if (!pendingTodo) return;
+    var idx = pendingTodo; pendingTodo = null;
+    var row = document.querySelector('#panel-todos [data-exp="todo-' + idx + '"]');
+    if (!row) return;
+    var host = row.closest(".todo");
+    if (host) { host.classList.add("open"); row.setAttribute("aria-expanded", "true"); }
+    try { row.scrollIntoView({ block: "center", behavior: "smooth" }); } catch (e) { row.scrollIntoView(); }
+    row.classList.add("kbd-here");
+    try { row.focus({ preventScroll: true }); } catch (e2) {}
+  }
+
+  // ── 탭 내 검색 입력 (할 일 · 기록) — 부분 교체로 포커스·커서를 지킨다 ──
+  document.addEventListener("input", function (e) {
+    var t = e.target;
+    if (!t || !t.id) return;
+    if (t.id === "todo-q") {
+      todoFilter.q = t.value || "";
+      paintTodoList();
+      // ✕ 버튼은 값이 있을 때만 — 부분 교체 대상 밖이므로 여기서 직접 붙인다
+      var wrap = t.parentNode, fx = wrap ? wrap.querySelector("[data-tf-clear]") : null;
+      if (todoFilter.q && !fx && wrap) {
+        var b = document.createElement("button");
+        b.className = "fx"; b.type = "button"; b.setAttribute("data-tf-clear", "");
+        b.setAttribute("aria-label", "검색 지우기"); b.textContent = "✕";
+        wrap.appendChild(b);
+      } else if (!todoFilter.q && fx) { fx.remove(); }
+      return;
+    }
+    if (t.id === "rec-q") {
+      recQuery = t.value || "";
+      paintRecBody();
+      return;
+    }
+    if (t.id === "rec-tbl-q") { paintRecTable(t.value || ""); return; }
+  });
+
+  // ── 시각화 호버 툴팁 (위임 1개) — [data-tip] 이 있는 마크에만 뜬다 ──
+  var vizTip = document.getElementById("viz-tip");
+  function hideTip() { if (vizTip) vizTip.setAttribute("hidden", ""); }
+  function showTip(el, x, y) {
+    if (!vizTip) return;
+    vizTip.textContent = el.getAttribute("data-tip") || "";
+    vizTip.removeAttribute("hidden");
+    var r = vizTip.getBoundingClientRect();
+    var left = Math.max(6, Math.min(x + 12, (window.innerWidth || 800) - r.width - 6));
+    var top = y - r.height - 10;
+    if (top < 6) top = y + 18;
+    vizTip.style.left = left + "px";
+    vizTip.style.top = top + "px";
+  }
+  document.addEventListener("mousemove", function (e) {
+    var el = e.target && e.target.closest ? e.target.closest("[data-tip]") : null;
+    if (el) showTip(el, e.clientX, e.clientY); else hideTip();
+  });
+  document.addEventListener("mouseleave", hideTip);
+  document.addEventListener("scroll", hideTip, true);
+  // 키보드 포커스로도 같은 정보를 준다 (색·호버만으로 정보를 가두지 않는다)
+  document.addEventListener("focusin", function (e) {
+    var el = e.target && e.target.closest ? e.target.closest("[data-tip]") : null;
+    if (!el) { hideTip(); return; }
+    var r = el.getBoundingClientRect();
+    showTip(el, r.left + r.width / 2, r.top);
+  });
+  document.addEventListener("focusout", hideTip);
+  // 표 머리글은 th(role=button) — 키보드로도 정렬되게 Enter/Space 를 받는다
+  document.addEventListener("keydown", function (e) {
+    if (e.key !== "Enter" && e.key !== " ") return;
+    var ts = e.target && e.target.closest ? e.target.closest("[data-sort]") : null;
+    if (!ts) return;
+    e.preventDefault();
+    onActivate(ts);
+  });
+
   // 입력 중인지 — 단축키가 타이핑을 가로채지 않게
   function isTyping(t) {
     if (!t || !t.tagName) return false;
