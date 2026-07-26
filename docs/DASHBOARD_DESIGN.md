@@ -2,7 +2,7 @@
 
 > `dashboard/index.html` 을 고치는 **모든 세션·에이전트의 헌법**이다. 데이터 규약은
 > `STATE_CONTRACT.md`, 디자인 시스템 상세는 gyeol-design-system 스킬(`references/` 포함)이 기준.
-> 2026-07-23 GYEOL 전면 개편 + 홈 UX 라운드 기준.
+> 2026-07-26 기준 — GYEOL 전면 개편(7/23) + 팀 탭(W17) + 기록 탭 개편(W18, 토글 트리·리딩 페인) 누적 반영.
 
 ## 0. 작업 전 의무
 
@@ -62,7 +62,7 @@
 ## 4. 작업 절차
 
 1. `skeleton/dashboard/index.html` 수정 (gyeol.* 파일은 불변)
-2. `node -e "new Function(...)"` 문법 체크 → `tools/dashboard-e2e/run.sh` 28/28
+2. `node -e "new Function(...)"` 문법 체크 → `tools/dashboard-e2e/run.sh` 전항 PASS(현재 42점)
 3. 시각 변경 시 라이트+다크 스크린샷 육안 (배경 애니메이션 함정 §3 참고)
 4. `tools/sync-demo-kits.sh` 로 키트 반영 → skeleton 레포 커밋·푸시
 5. 사용자에게 보여줄 땐 전/후 스크린샷 비교(`docs/work/W16_.../screenshots/uxpass-*` 선례)
