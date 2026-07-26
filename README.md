@@ -58,6 +58,8 @@ cd ~/Downloads/my-biz-partner
    - "내일 일정 브리핑해줘"
 4. **캘린더 연결(선택)** — `docs/SETUP_CALENDAR.md`. 연결이 어려우면 폴백 방법도 있습니다.
 5. **대시보드 열기** — `dashboard/index.html` 을 더블클릭하면 내 비서 상태가 보입니다.
+   터미널에서 `./dashboard.sh` 로 띄우면 상태 파일을 직접 읽어 **늘 최신**이고, 기록이 많아져도
+   첫 화면이 느려지지 않습니다(내 컴퓨터에서만 열립니다).
 
 </details>
 
@@ -75,6 +77,7 @@ cd ~/Downloads/my-biz-partner
 | `CLAUDE.md` | 파트너의 행동 지침 (건드리지 않아도 됩니다) |
 | `notes/` | 던진 메모가 분류되어 쌓이는 곳 |
 | `dashboard/index.html` | 내 비서 상태를 보는 화면 (더블클릭해서 열기) |
+| `dashboard.sh` | 대시보드를 **로컬 서버**로 띄우기 (`./dashboard.sh`) — 상태가 늘 최신 |
 | `docs/` | 텔레그램·캘린더 연결 가이드, 상태 계약 설명 |
 | `.claude/skills/` | 기능 모듈 (브리핑·기록·초안 등) — 자동으로 쓰입니다 |
 

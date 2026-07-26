@@ -628,6 +628,14 @@
   .stale-note .ic { flex: none; color: var(--g-warning); font-size: var(--g-icon); line-height: 1.3; }
   .stale-note b { color: var(--g-warning); font-variant-numeric: var(--g-font-numeric); }
 
+  /* ── 실행 모드 표시 (W20 3단계) ─────────────────────────── */
+  .mode-pill {
+    display: inline-flex; align-items: center; font: var(--g-micro); font-weight: 700;
+    color: var(--g-brand); background: var(--g-brand-soft);
+    border-radius: var(--g-radius-1); padding: 1px var(--g-space-2);
+  }
+  .mode-pill.warn-pill { color: var(--g-warning); background: var(--g-warning-soft); }
+
   /* ── 키 캡 ─────────────────────────────────────────────── */
   .kbd {
     display: inline-flex; align-items: center; justify-content: center;
@@ -1146,6 +1154,15 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
   var data = (typeof window !== "undefined" && window.DASHBOARD_DATA) ? window.DASHBOARD_DATA : null;
   var root = document.getElementById("root");
 
+  // ── 실행 모드 (W20 3단계) ────────────────────────────────────
+  //  서버 모드(http://127.0.0.1): state/*.json 을 직접 읽고 노트 본문을 필요할 때 파일에서 가져온다.
+  //    → 파트너가 상태를 바꾸면 refresh-dashboard.sh 를 아직 안 돌렸어도 화면이 최신이다.
+  //  파일 모드(file://): 지금까지와 동일 — 래퍼(dashboard-data.js) 임베드만 쓴다. **폴백은 항상 유지**한다.
+  var SERVER_MODE = (function () {
+    try { return /^https?:$/.test(location.protocol) && typeof fetch === "function"; } catch (e) { return false; }
+  })();
+  var srvLive = false;   // 서버 모드에서 JSON 직접 읽기가 실제로 성공했는가 (실패 시 래퍼 값 유지)
+
   if (!data || !data.status) {
     root.innerHTML =
       '<div class="main"><div class="main-inner">' +
@@ -1239,12 +1256,24 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
 
   // ── 경로 → 내용 맵 (마크다운 뷰어용) ──
   var contentByPath = {};
-  (records.recent || []).forEach(function (r) { if (r && r.path) contentByPath[r.path] = { title: r.title, content: r.content }; });
-  (records.projects || []).forEach(function (p) { if (p && p.path) contentByPath[p.path] = { title: p.title, content: p.content }; });
-  projectList.forEach(function (p) { (p.outputs || []).forEach(function (o) { if (o && o.path) contentByPath[o.path] = { title: o.title, content: o.content }; }); });
+  // 본문 없는 항목은 **키를 만들지 않는다** — 키만 있으면 서버 모드의 지연 로드가 "이미 있다" 고 보고 건너뛴다
+  // (실측 결함: 임베드가 빠진 래퍼에서 뷰어가 폴백 문구만 띄우고 검색 색인도 비었다).
+  function putBody(path, title, content, table) {
+    if (!path) return;
+    if (content == null && table == null) return;
+    contentByPath[path] = { title: title, content: content, table: table };
+  }
+  // 본문(또는 표)이 실제로 있는가
+  function hasBody(path) {
+    var e = path ? contentByPath[path] : null;
+    return !!(e && (e.content != null || e.table != null));
+  }
+  (records.recent || []).forEach(function (r) { if (r) putBody(r.path, r.title, r.content, null); });
+  (records.projects || []).forEach(function (p) { if (p) putBody(p.path, p.title, p.content, null); });
+  projectList.forEach(function (p) { (p.outputs || []).forEach(function (o) { if (o) putBody(o.path, o.title, o.content, null); }); });
   // records.contents = { path: {title, content} } — 모든 노트·프로젝트 파일(refresh 파생). 중복 시 contents 우선(전역 뷰어).
   if (records.contents && typeof records.contents === "object") {
-    Object.keys(records.contents).forEach(function (k) { var c = records.contents[k]; if (c) contentByPath[k] = { title: c.title, content: c.content, table: c.table }; });
+    Object.keys(records.contents).forEach(function (k) { var c = records.contents[k]; if (c) putBody(k, c.title, c.content, c.table); });
   }
 
   function basename(p) { if (!p) return ""; var x = String(p).replace(/\/+$/, ""); var a = x.split("/"); return a[a.length - 1] || x; }
@@ -2879,7 +2908,13 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
         '<span class="ico" aria-hidden="true">↻</span>새로고침</button></div>';
   }
   function footHTML() {
-    return '<footer>새 소식이 있을 때만 자동으로 갱신해요 · <code>state/dashboard-data.js</code> 를 읽습니다 · ' +
+    // 무엇을 읽고 있는지 정직하게 밝힌다 — 서버 모드면 상태 파일 직독, 파일 모드면 래퍼.
+    var srcLine = (SERVER_MODE && srvLive)
+      ? '<span class="mode-pill" title="로컬 서버로 열려 있어 상태 파일을 직접 읽어요">서버 모드</span> ' +
+        '<code>state/status.json</code>·<code>team.json</code> 을 직접 읽습니다 · 기록 목록은 <code>dashboard-data.js</code>'
+      : '<code>state/dashboard-data.js</code> 를 읽습니다' +
+        (SERVER_MODE ? ' <span class="mode-pill warn-pill">상태 파일 직독 실패 — 래퍼로 표시 중</span>' : '');
+    return '<footer>새 소식이 있을 때만 자동으로 갱신해요 · ' + srcLine + ' · ' +
       '<button class="g-btn g-btn--ghost g-btn--sm" type="button" data-keyshelp>단축키 ?</button></footer>';
   }
 
@@ -2937,7 +2972,15 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
     }
     // 페인트 뒤 후처리 — 필터 카운트·검색 강조·점프 대상 펼침
     if (activeTab === "todos") { paintTodoList(); focusPendingTodo(); }
-    if (activeTab === "records") { afterRecPaint(); }
+    if (activeTab === "records") {
+      afterRecPaint();
+      // 서버 모드: 진입 시 선택된 파일의 본문이 임베드에 없으면 파일에서 가져와 채운다
+      // (클릭 때만 가져오면 탭 진입 첫 화면이 '미리보기가 준비되지 않았어요' 로 뜬다 — 실측 결함)
+      var cf = recView.file;
+      if (SERVER_MODE && cf && !hasBody(cf)) {
+        ensureBody(cf, function (filled) { if (filled && recView.file === cf) paintView(); });
+      }
+    }
   }
 
   function renderAll() {
@@ -3091,6 +3134,14 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
       '<iframe class="webview" src="' + esc(url) + '" sandbox="allow-scripts allow-same-origin allow-forms allow-popups" referrerpolicy="no-referrer" title="웹 미리보기"></iframe>');
   }
   function openViewer(path) {
+    // 서버 모드: 래퍼에 본문이 없으면 파일에서 바로 읽어 온 뒤 연다 (한 번만 재시도)
+    if (SERVER_MODE && path && !hasBody(path)) {
+      ensureBody(path, function (filled) { if (filled) openViewer(path); else openViewerNow(path); });
+      return;
+    }
+    openViewerNow(path);
+  }
+  function openViewerNow(path) {
     pushRecent(path);                       // 팔레트의 '최근' 목록 재료
     var entry = contentByPath[path];
     var title = (entry && entry.title) ? entry.title : basename(path);
@@ -3154,7 +3205,8 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
   }
 
   // 색인은 부팅 때 한 번 만든다(데이터가 바뀌면 페이지가 리로드되므로 재구축 불필요)
-  var CMDK_INDEX = (function () {
+  // 서버 모드에서 노트 본문을 뒤늦게 채우면 색인도 다시 세운다 → 함수로 분리(부팅 때 1회 호출).
+  function buildCmdkIndex() {
     var idx = [];
     TABS.forEach(function (tb) {
       idx.push({ g: "이동", t: tb.label, sub: tb.label + " 탭으로 이동", kw: tb.label + " " + tb.id, act: { k: "tab", v: tb.id } });
@@ -3191,7 +3243,8 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
       });
     });
     return idx;
-  })();
+  }
+  var CMDK_INDEX = buildCmdkIndex();
 
   function hl(text, terms) {
     var out = esc(String(text == null ? "" : text));
@@ -3483,7 +3536,12 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
       var fp = recFile.getAttribute("data-rec-file");
       recView.file = fp; pushRecent(fp);
       var fk = recFolderKeyOf(fp); if (fk) recView.folder = fk;
-      renderAll(); return;
+      renderAll();
+      // 서버 모드: 임베드에 없는 본문이면 파일에서 읽어 와 그 자리에 채운다
+      if (SERVER_MODE && !hasBody(fp)) {
+        ensureBody(fp, function (filled) { if (filled && recView.file === fp) paintView(); });
+      }
+      return;
     }
     // '파일로 이동'(data-goto) 은 순수 앵커 — 브라우저 기본 동작(새 탭)에 위임
     if (target.closest("[data-goto]")) return;
@@ -3683,9 +3741,143 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
     }
   });
 
+  // ============================================================
+  // W20 3단계 · 서버 모드 — state/*.json 직접 읽기 + 노트 본문 지연 로드
+  // ------------------------------------------------------------
+  // 파일 모드(file://)는 CORS 때문에 fetch 가 막혀 래퍼만 쓴다. 서버 모드에서만 아래가 켜진다.
+  // 실패하면 조용히 래퍼 값으로 남는다(폴백 우선 — 서버가 없어도 지금까지처럼 동작한다).
+  // ============================================================
+
+  // status/team 만 새로 들어온다(records·roster 는 파일시스템 스캔이 필요해 래퍼 소관).
+  // 그래서 여기서 다시 계산해야 하는 파생값을 **한곳에** 모아 둔다 — 빠뜨리면 화면 일부만 낡는다.
+  function applyStatusTeam(freshStatus, freshTeam) {
+    if (freshStatus) { data.status = freshStatus; s = freshStatus; }
+    if (freshTeam) { data.team = freshTeam; team = freshTeam; }
+
+    agent = s.agent || {}; today = s.today || {}; tcounts = today.counts || {};
+    todos = s.todos || [];
+    proj = team.activeProject || null;
+
+    TODAY = (today && today.date) || isoToday();
+    REAL_TODAY = isoToday();
+    dataStale = TODAY !== REAL_TODAY;
+    staleDays = (function () { var a = parseD(REAL_TODAY), b = parseD(TODAY); return (a && b) ? Math.round((a - b) / 86400000) : 0; })();
+
+    activeTodos = todos.filter(function (t) { return t.state !== "done"; });
+    overdueN = countBucket("past"); todayN = countBucket("today"); laterN = countBucket("later");
+
+    staffList = (team && team.staff) || [];
+    staffById = {}; staffByName = {}; staffByRole = {};
+    staffList.forEach(function (st) {
+      if (st.roleFile) staffById[st.roleFile] = st;
+      if (st.name) staffByName[st.name] = st;
+      if (st.role) staffByRole[st.role] = st;
+    });
+
+    projectList = [];
+    if (proj) projectList.push(normProject(proj, false, 0));
+    (team.pipeline || []).forEach(function (p, i) { projectList.push(normProject(p, false, i + 1)); });
+    (team.history || []).forEach(function (h, i) { projectList.push(normProject(h, true, i)); });
+    projectList.forEach(function (p) {
+      (p.outputs || []).forEach(function (o) { if (o && !hasBody(o.path)) putBody(o.path, o.title, o.content, null); });
+    });
+
+    // 프로젝트 상세 화면이 사라진 프로젝트를 가리키고 있으면 목록으로 되돌린다
+    if (projectView.mode === "detail") {
+      var found = false;
+      projectList.forEach(function (p) { if (p.id === projectView.id) found = true; });
+      if (!found) projectView = { mode: "list", id: null };
+    }
+    CMDK_INDEX = buildCmdkIndex();
+  }
+
+  function fetchJSON(path) {
+    return fetch("../" + path + "?v=" + Date.now(), { cache: "no-store" })
+      .then(function (r) { if (!r.ok) throw new Error(String(r.status)); return r.json(); });
+  }
+
+  // 두 상태 파일을 직접 읽어 반영한다. 하나라도 실패하면 아무것도 바꾸지 않는다(반쪽 반영 금지).
+  function loadLiveState(done) {
+    Promise.all([fetchJSON("state/status.json"), fetchJSON("state/team.json")])
+      .then(function (r) {
+        srvLive = true;
+        applyStatusTeam(r[0], r[1]);
+        done();
+      })
+      .catch(function () { srvLive = false; done(); });
+  }
+
+  // ── 노트 본문 지연 로드 ─────────────────────────────────────
+  // 래퍼에 본문이 없어도(대용량 금고에서 임베드를 줄인 경우) 파일에서 바로 읽어 보여준다.
+  var bodyFetching = {};
+  function parseCsvText(txt) {
+    var rows = [], row = [], cell = "", q = false, i = 0;
+    var t = String(txt).replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+    for (; i < t.length; i++) {
+      var ch = t.charAt(i);
+      if (q) {
+        if (ch === '"') { if (t.charAt(i + 1) === '"') { cell += '"'; i++; } else q = false; }
+        else cell += ch;
+      } else if (ch === '"') q = true;
+      else if (ch === ",") { row.push(cell); cell = ""; }
+      else if (ch === "\n") { row.push(cell); cell = ""; rows.push(row); row = []; if (rows.length >= 200) break; }
+      else cell += ch;
+    }
+    if (cell !== "" || row.length) { row.push(cell); rows.push(row); }
+    return rows.length ? rows : null;
+  }
+  // done(true) = 새로 채워졌음 / done(false) = 이미 있거나 가져올 수 없음
+  function ensureBody(path, done) {
+    if (!path || hasBody(path) || !SERVER_MODE || bodyFetching[path]) { done(false); return; }
+    if (/\.xlsx$/i.test(path)) { done(false); return; }   // xlsx 는 브라우저에서 못 푼다 — 래퍼 파싱 결과만 쓴다
+    bodyFetching[path] = 1;
+    fetch("../" + path, { cache: "no-store" })
+      .then(function (r) { if (!r.ok) throw new Error(String(r.status)); return r.text(); })
+      .then(function (txt) {
+        var title = basename(path).replace(/\.(md|csv)$/i, "").replace(/^\d{4}-\d{2}-\d{2}-/, "");
+        if (/\.csv$/i.test(path)) {
+          var tbl = parseCsvText(txt);
+          if (tbl) putBody(path, title, null, tbl); else putBody(path, title, txt, null);
+        } else {
+          putBody(path, title, txt, null);
+        }
+        delete bodyFetching[path];
+        done(true);
+      })
+      .catch(function () { delete bodyFetching[path]; done(false); });
+  }
+
+  // 검색이 반쪽이 되지 않게, 본문 없는 파일을 조용히 뒤에서 채운다(동시 3개까지).
+  function backfillBodies() {
+    if (!SERVER_MODE) return;
+    var missing = allRecords().filter(function (f) { return f.path && !hasBody(f.path) && !/\.xlsx$/i.test(f.path); })
+      .map(function (f) { return f.path; });
+    if (!missing.length) return;
+    var at = 0, live = 0, changed = false;
+    function pump() {
+      while (live < 3 && at < missing.length) {
+        live++;
+        ensureBody(missing[at++], function (ok2) {
+          if (ok2) changed = true;
+          live--;
+          if (at < missing.length) pump();
+          else if (live === 0 && changed) {
+            CMDK_INDEX = buildCmdkIndex();
+            if (activeTab === "records") paintView();
+          }
+        });
+      }
+    }
+    pump();
+  }
+
   // ── 부팅 ───────────────────────────────────────────────────
-  activeTab = tabFromHash();
-  renderAll();
+  function boot() {
+    activeTab = tabFromHash();
+    renderAll();
+    backfillBodies();
+    startPolling();
+  }
 
   // "갱신 N초 전" 라벨을 1초마다 갱신 (전체 리로드 없이 표시만 최신화)
   setInterval(function () {
@@ -3695,24 +3887,57 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
   }, 1000);
 
   // 데이터 갱신 감지 — 매 15초 전체 리로드는 스크롤·펼침 상태를 깨서 불편하다는 대표 피드백으로 교체.
-  // 데이터 파일만 조용히 다시 읽어(스크립트 재주입) updatedAt 이 실제로 바뀌었을 때만 화면을 새로 그린다.
+  // 바뀐 경우에만 갱신한다. (보존 계약: 무조건 리로드로 되돌리지 말 것)
+  //  · 파일 모드: 래퍼를 다시 읽어 서명이 바뀌면 리로드.
+  //  · 서버 모드: state/*.json 만 읽어 서명이 바뀌면 **리로드 없이 제자리 갱신** — 스크롤·펼침이 유지된다.
   function dataSig(d) { d = d || {}; return ((d.status || {}).updatedAt || "") + "|" + ((d.team || {}).updatedAt || ""); }
   var bootSig = dataSig(data);
-  function scheduleReload() {
+  var POLL_MS = 15000;
+
+  function pollServer() {
     setTimeout(function () {
-      if (modalOpen()) { scheduleReload(); return; }   // 노트 읽는 중엔 건드리지 않는다
+      if (modalOpen() || cmdkOpened()) { pollServer(); return; }   // 노트 읽는 중·검색 중엔 건드리지 않는다
+      Promise.all([fetchJSON("state/status.json"), fetchJSON("state/team.json")])
+        .then(function (r) {
+          srvLive = true;
+          var sig = dataSig({ status: r[0], team: r[1] });
+          if (sig !== bootSig) {
+            bootSig = sig;
+            applyStatusTeam(r[0], r[1]);
+            renderAll();
+            backfillBodies();
+            toast("새 소식이 있어 화면을 갱신했어요");
+          }
+          pollServer();
+        })
+        .catch(function () { srvLive = false; pollServer(); });
+    }, POLL_MS);
+  }
+
+  function pollFile() {
+    setTimeout(function () {
+      if (modalOpen()) { pollFile(); return; }
       var sc = document.createElement("script");
       sc.src = "../state/dashboard-data.js?v=" + Date.now();
       sc.onload = function () {
         sc.remove();
         if (dataSig(window.DASHBOARD_DATA) !== bootSig) { location.reload(); return; }
-        scheduleReload();
+        pollFile();
       };
-      sc.onerror = function () { sc.remove(); scheduleReload(); };
+      sc.onerror = function () { sc.remove(); pollFile(); };
       document.head.appendChild(sc);
-    }, 15000);
+    }, POLL_MS);
   }
-  scheduleReload();
+
+  function startPolling() { if (SERVER_MODE) pollServer(); else pollFile(); }
+
+  // 서버 모드면 상태 파일을 먼저 직접 읽고 그린다 — 첫 화면부터 최신이 되도록.
+  // (래퍼가 낡아 있어도 홈·할 일·프로젝트·팀·칸반은 실시간 값으로 뜬다)
+  if (SERVER_MODE) {
+    loadLiveState(function () { bootSig = dataSig(data); boot(); });
+  } else {
+    boot();
+  }
 })();
 </script>
 </body>
