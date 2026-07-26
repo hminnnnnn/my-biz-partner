@@ -603,6 +603,143 @@
     @keyframes fadeUp { to { opacity: 1; transform: none } }
   }
 
+  /* ============================================================
+     W20 · 셸 레이어 — 유동 폭 · 신선도 고지 · 커맨드 팔레트 · 키보드 · 인쇄
+     ============================================================ */
+
+  /* ── 유동 폭: 콘텐츠 유형별로 상한을 달리한다 ──────────────
+     1040px 고정은 1920px 에서 폭 83%(죽은 폭 330px), 2560px 에서 75%(650px)만 썼다(실측).
+     목록·보드는 넓게, 읽기 본문은 좁게(--g-space 기반 measure 는 각 컴포넌트가 유지). */
+  .main { --shell-max: 1240px; }
+  .main[data-tab="todos"]   { --shell-max: 1120px; }
+  .main[data-tab="project"] { --shell-max: 1280px; }
+  .main[data-tab="team"]    { --shell-max: 1320px; }
+  .main[data-tab="kanban"]  { --shell-max: 1560px; }
+  .main[data-tab="records"] { --shell-max: 1600px; }
+  .main-inner { max-width: var(--shell-max); }
+
+  /* ── 데이터 신선도 고지 — 낡은 데이터를 최신인 척하지 않는다 ── */
+  .stale-note {
+    display: flex; align-items: flex-start; gap: var(--g-space-3);
+    background: var(--g-warning-soft); border-radius: var(--g-radius-card);
+    padding: var(--g-space-4) var(--g-space-5); margin-bottom: var(--g-space-6);
+    font: var(--g-caption); color: var(--g-fg);
+  }
+  .stale-note .ic { flex: none; color: var(--g-warning); font-size: var(--g-icon); line-height: 1.3; }
+  .stale-note b { color: var(--g-warning); font-variant-numeric: var(--g-font-numeric); }
+
+  /* ── 키 캡 ─────────────────────────────────────────────── */
+  .kbd {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 18px; padding: 1px var(--g-space-2);
+    font: var(--g-micro); font-family: var(--g-font-mono); color: var(--g-fg-muted);
+    background: var(--g-surface-sunken); border: 1px solid var(--g-border);
+    border-radius: var(--g-radius-1); flex: none;
+  }
+
+  /* ── 검색 트리거 (상단·사이드바 공용) ──────────────────── */
+  .searchbtn {
+    display: inline-flex; align-items: center; gap: var(--g-space-3); width: 100%;
+    font: var(--g-caption); color: var(--g-fg-subtle); text-align: left;
+    background: var(--g-surface-sunken); border: 1px solid var(--g-border);
+    border-radius: var(--g-radius-control); padding: var(--g-space-3) var(--g-space-4);
+    cursor: pointer; transition: border-color var(--g-motion-state), color var(--g-motion-state), background-color var(--g-motion-tap);
+  }
+  .searchbtn:hover { border-color: var(--g-border-strong); color: var(--g-fg-muted); background: var(--g-surface); }
+  .searchbtn .lbl { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* ── 커맨드 팔레트 ─────────────────────────────────────── */
+  /* ★ 필수: 닫힘 = 완전 제거. display:flex 가 [hidden] 을 이기면 투명 클릭-삼킴 레이어가 된다(모달과 동일 사고 전력). */
+  .cmdk-backdrop[hidden] { display: none !important; }
+  .cmdk-backdrop {
+    position: fixed; inset: 0; z-index: var(--g-z-overlay);
+    display: flex; align-items: flex-start; justify-content: center;
+    padding: var(--g-space-9) var(--g-space-5) var(--g-space-5);
+    background: var(--g-scrim);
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .cmdk-backdrop { animation: mfade var(--g-dur-2) var(--g-ease-out); }
+    .cmdk { animation: cmdkpop var(--g-motion-reveal); }
+    @keyframes cmdkpop { from { opacity: 0; transform: translateY(-8px) scale(.99) } }
+  }
+  .cmdk {
+    background: var(--g-surface-raised); border: var(--g-elev-border); border-radius: var(--g-radius-sheet);
+    width: 100%; max-width: 620px; max-height: min(70vh, 560px);
+    display: flex; flex-direction: column; overflow: hidden; box-shadow: var(--g-elev-3);
+  }
+  /* 상단 행 자체가 검색 필드 — 포커스 링이 행 전체를 감싸서 '지금 여기 입력 중'이 읽힌다.
+     (:focus-within 사용 — 입력에만 링이 붙어 겉도는 문제 교정) */
+  .cmdk-top {
+    display: flex; align-items: center; gap: var(--g-space-3); flex: none;
+    margin: var(--g-space-4) var(--g-space-4) var(--g-space-2);
+    padding: var(--g-space-3) var(--g-space-4);
+    background: var(--g-surface-sunken); border: 1px solid var(--g-border);
+    border-radius: var(--g-radius-control);
+    transition: border-color var(--g-motion-state), box-shadow var(--g-motion-state);
+  }
+  .cmdk-top:focus-within { border-color: var(--g-brand); box-shadow: var(--g-focus-ring); }
+  .cmdk-top .cmdk-ic { color: var(--g-fg-subtle); font-size: var(--g-icon); line-height: 1; flex: none; }
+  .cmdk-input {
+    flex: 1; min-width: 0; font: var(--g-body); color: var(--g-fg);
+    background: transparent; border: 0; outline: none; padding: var(--g-space-1) 0;
+  }
+  .cmdk-input:focus-visible { box-shadow: none; outline: none; }
+  .cmdk-input::placeholder { color: var(--g-fg-subtle); }
+  .cmdk-list { overflow-y: auto; padding: var(--g-space-2) var(--g-space-2) var(--g-space-3); flex: 1; }
+  .cmdk-group-h {
+    font: var(--g-micro); font-weight: 700; color: var(--g-fg-subtle);
+    text-transform: uppercase; letter-spacing: .05em;
+    padding: var(--g-space-4) var(--g-space-3) var(--g-space-2);
+  }
+  .cmdk-item {
+    display: flex; align-items: center; gap: var(--g-space-3); width: 100%; text-align: left;
+    font: inherit; color: inherit; background: transparent; border: 0; cursor: pointer;
+    border-radius: var(--g-radius-control); padding: var(--g-space-3) var(--g-space-3);
+    transition: background-color var(--g-motion-tap);
+  }
+  .cmdk-item:hover { background: var(--g-layer-hover); }
+  .cmdk-item[aria-selected="true"] { background: var(--g-brand-soft); }
+  .cmdk-item[aria-selected="true"] .cmdk-t { color: var(--g-brand-fg); }
+  .cmdk-item .cmdk-kind { flex: none; color: var(--g-fg-subtle); font-size: var(--g-icon); line-height: 1; width: 16px; text-align: center; }
+  .cmdk-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+  .cmdk-t { font: var(--g-body); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cmdk-sub { font: var(--g-micro); color: var(--g-fg-subtle); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cmdk-snip { font: var(--g-micro); color: var(--g-fg-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cmdk-hit { background: var(--g-warning-soft); color: var(--g-fg); border-radius: var(--g-radius-1); padding: 0 1px; }
+  .cmdk-empty { text-align: center; color: var(--g-fg-subtle); font: var(--g-caption); padding: var(--g-space-8) var(--g-space-5); }
+  .cmdk-empty .em { display: block; font-size: 22px; margin-bottom: var(--g-space-2); }
+  .cmdk-foot {
+    display: flex; align-items: center; gap: var(--g-space-4); flex: none; flex-wrap: wrap;
+    padding: var(--g-space-3) var(--g-space-5); border-top: 1px solid var(--g-border);
+    font: var(--g-micro); color: var(--g-fg-subtle); background: var(--g-surface);
+  }
+  .cmdk-foot .cmdk-count { margin-left: auto; font-variant-numeric: var(--g-font-numeric); }
+
+  /* 단축키 도움말 표 (모달 본문) */
+  .keys-tbl { width: 100%; border-collapse: collapse; font: var(--g-caption); }
+  .keys-tbl th { text-align: left; font: var(--g-micro); font-weight: 700; color: var(--g-fg-subtle);
+    text-transform: uppercase; letter-spacing: .04em; padding: var(--g-space-4) 0 var(--g-space-2); }
+  .keys-tbl td { padding: var(--g-space-3) 0; border-top: 1px solid var(--g-border); vertical-align: top; }
+  .keys-tbl td:first-child { width: 132px; white-space: nowrap; }
+  .keys-tbl td:first-child .kbd + .kbd { margin-left: 2px; }
+
+  /* 키보드 이동 중인 행 — 마우스 hover 와 구분되는 표시 */
+  .kbd-here { box-shadow: inset 2px 0 0 0 var(--g-brand); }
+
+  /* ── 인쇄: 회의 자료로 뽑을 수 있게 ────────────────────── */
+  @media print {
+    .sidebar, .top-refresh, .searchbtn, .cmdk-backdrop, .modal-backdrop, .toast, footer { display: none !important; }
+    .app { display: block; }
+    .main { padding: 0; --shell-max: 100%; }
+    .main-inner { max-width: 100%; }
+    .card, .kcol, .proj-card, .role-card, .decide, .kpis { break-inside: avoid; box-shadow: none; }
+    .stagger { opacity: 1 !important; transform: none !important; animation: none !important; }
+    .todo-detail, .kcard-body, .acc-body { grid-template-rows: 1fr !important; }
+    .rec-split { grid-template-columns: 1fr !important; }
+    .rec-tree { display: none !important; }
+    .webview { display: none !important; }
+  }
+
   /* ── 반응형 ─────────────────────────────────────────────── */
   @media (min-width: 640px) {
     .kpis { grid-template-columns: repeat(4, 1fr); }
@@ -627,7 +764,8 @@
       gap: var(--g-space-5); padding: var(--g-space-7) var(--g-space-5);
     }
     .nav { flex-direction: column; gap: var(--g-space-1); overflow: visible; }
-    .navtab { padding: var(--g-space-3) var(--g-space-4); }
+    /* 데스크톱 사이드바 행 36px — Linear·Vercel·Notion 공통값(44px 터치 타깃보다 조밀, 마우스 정밀도 전제) */
+    .navtab { padding: var(--g-space-2) var(--g-space-4); min-height: 36px; }
     .navtab .badge { margin-left: auto; }
     .side-foot { display: flex; }
     .top-refresh { display: none; }
@@ -659,6 +797,27 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
   </div>
 </div>
 
+<!-- 커맨드 팔레트 (⌘K / Ctrl+K / ) — #root 밖. 닫힘 상태 [hidden] → display:none 이라 클릭을 삼키지 않음. -->
+<div class="cmdk-backdrop" id="cmdk" hidden data-cmdk-backdrop>
+  <div class="cmdk" role="dialog" aria-modal="true" aria-labelledby="cmdk-label">
+    <h2 id="cmdk-label" class="g-visually-hidden" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">빠른 이동 · 검색</h2>
+    <div class="cmdk-top">
+      <span class="cmdk-ic" aria-hidden="true">⌕</span>
+      <input class="cmdk-input" id="cmdk-input" type="text" role="combobox" aria-expanded="true"
+             aria-controls="cmdk-list" aria-autocomplete="list" aria-activedescendant=""
+             placeholder="노트 본문까지 검색 · 탭·할 일·프로젝트·팀 이동" autocomplete="off" spellcheck="false" autofocus>
+      <kbd class="kbd">esc</kbd>
+    </div>
+    <div class="cmdk-list" id="cmdk-list" role="listbox" aria-label="검색 결과"></div>
+    <div class="cmdk-foot">
+      <span><kbd class="kbd">↑</kbd> <kbd class="kbd">↓</kbd> 이동</span>
+      <span><kbd class="kbd">↵</kbd> 열기</span>
+      <span><kbd class="kbd">?</kbd> 단축키</span>
+      <span class="cmdk-count" id="cmdk-count"></span>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <!-- 상태 파일(파생본). 이 파일 하나만 읽는다 — STATE_CONTRACT 4 -->
@@ -675,6 +834,10 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
   var MSTAT_LABEL  = { waiting: "대기", working: "진행 중", done: "완료", blocked: "막힘" };
   var FOLDER_LABEL = { inbox: "받은함", meetings: "미팅", customers: "고객", ideas: "아이디어", issues: "이슈" };
   var STATUS_LABEL = { online: "활동 중", working: "작업 중", idle: "대기 중", offline: "꺼짐" };
+
+  var isMac = (function () {
+    try { return /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent || ""); } catch (e) { return true; }
+  })();
 
   var TABS = [
     { id: "home",    label: "홈",      ic: "◈" },
@@ -731,6 +894,10 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
   var proj = team.activeProject || null;
   var todos = s.todos || [];
   TODAY = (today && today.date) || isoToday();
+  // 데이터 기준일 vs 실제 오늘 — 어긋나면 화면에서 정직하게 고지한다(낡은 데이터를 최신인 척하지 않는다).
+  var REAL_TODAY = isoToday();
+  var dataStale = TODAY !== REAL_TODAY;
+  var staleDays = (function () { var a = parseD(REAL_TODAY), b = parseD(TODAY); return (a && b) ? Math.round((a - b) / 86400000) : 0; })();
   // 활성 할 일(완료 제외) — 홈/할 일 탭/KPI/배지의 '해야 할 일' 은 활성만, 칸반 완료 열은 todos 전체에서 파생
   var activeTodos = todos.filter(function (t) { return t.state !== "done"; });
 
@@ -862,11 +1029,16 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
   }
 
   // ── todo 버킷/정렬 ─────────────────────────────────────────
+  // 기한 판정은 대시보드가 due 로 직접 계산한다 — 파생 state("overdue")를 신뢰하지 않는다.
+  // 파생 판정일과 표시 기준일이 어긋나면 "0일 지남"·미래 기한 '지남' 오표기가 났다(W20 P0 결함).
+  // refresh-dashboard.sh 도 같은 기준(status.today.date)으로 파생하도록 고쳤지만,
+  // 옛 래퍼 파일(기준이 어긋난 채 생성된 것)을 읽어도 화면이 옳게 나오도록 여기서 다시 계산한다.
   function bucket(t) {
     var d = dayDiff(t.due);
-    if (t.state === "overdue" || (d !== null && d < 0)) return "past";
+    if (d === null) return "later"; // 기한 없는 열린 이슈 = 상시
+    if (d < 0) return "past";
     if (d === 0) return "today";
-    return "later"; // 예정(미래) + due 없는 열린 이슈
+    return "later";
   }
   function rank(t) {
     var b = bucket(t);
@@ -949,6 +1121,9 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
           '<small>' + esc(sub) + '</small>' +
         '</span>' +
       '</div>' +
+      '<button class="searchbtn" data-cmdk-open type="button" aria-label="검색 열기 (⌘K)">' +
+        '<span class="cmdk-ic" aria-hidden="true">⌕</span><span class="lbl">검색</span>' +
+        '<kbd class="kbd">' + (isMac ? '⌘K' : 'Ctrl K') + '</kbd></button>' +
       '<nav class="nav" role="tablist" aria-orientation="vertical" aria-label="대시보드 탭">' + nav + '</nav>' +
       '<div class="side-foot">' +
         '<span class="upd-label">갱신 ' + relTime(s.updatedAt) + '</span><span class="spacer"></span>' +
@@ -1586,17 +1761,88 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
 
   var RENDERERS = { home: renderHome, todos: renderTodos, project: renderProject, team: renderTeam, kanban: renderKanban, records: renderRecords };
 
-  function mainHTML() {
-    var top = '<div class="top-refresh"><span class="upd-label">갱신 ' + relTime(s.updatedAt) + '</span>' +
+  // ── 데이터 신선도 고지 ────────────────────────────────────
+  // 데이터 기준일(status.today.date)이 실제 오늘과 다르면 숨기지 않고 알린다.
+  // 기한 계산은 전부 기준일로 하므로, 기준일을 모르면 화면의 'D-2' 가 무엇 대비인지 알 수 없다.
+  function staleHTML() {
+    if (!dataStale) return "";
+    function kdate(iso) { var p = String(iso).split("-"); return p.length === 3 ? (+p[1]) + "월 " + (+p[2]) + "일" : iso; }
+    return '<div class="stale-note" role="status">' +
+      '<span class="ic" aria-hidden="true">◷</span>' +
+      '<span>이 화면의 기한은 <b>' + esc(kdate(TODAY)) + '</b> 기준이에요 — 오늘은 ' + esc(kdate(REAL_TODAY)) +
+      (staleDays > 0 ? ' (<b>' + staleDays + '일</b> 전 기록)' : '') +
+      '. 파트너에게 말을 걸면 최신 상태로 갱신돼요.</span></div>';
+  }
+
+  function topBarHTML() {
+    return '<div class="top-refresh"><span class="upd-label">갱신 ' + relTime(s.updatedAt) + '</span>' +
       themeBtn() +
-      '<button class="refresh" data-refresh type="button" aria-label="새로고침"><span class="ico" aria-hidden="true">↻</span>새로고침</button></div>';
-    var body = (RENDERERS[activeTab] || renderHome)();
-    var foot = '<footer>새 소식이 있을 때만 자동으로 갱신해요 · <code>state/dashboard-data.js</code> 를 읽습니다</footer>';
-    return '<main class="main"><div class="main-inner">' + top + body + foot + '</div></main>';
+      '<button class="refresh" data-refresh type="button" aria-label="새로고침">' +
+        '<span class="ico" aria-hidden="true">↻</span>새로고침</button></div>';
+  }
+  function footHTML() {
+    return '<footer>새 소식이 있을 때만 자동으로 갱신해요 · <code>state/dashboard-data.js</code> 를 읽습니다 · ' +
+      '<button class="g-btn g-btn--ghost g-btn--sm" type="button" data-keyshelp>단축키 ?</button></footer>';
+  }
+
+  // ── 셸: 한 번만 마운트하고 이후엔 뷰 슬롯만 교체한다 ───────
+  //    전체 innerHTML 교체는 스크롤·포커스를 매번 날린다("성능이 UX" — 리서치 기준).
+  var slotEl = null, mainEl = null, mounted = false;
+  function mountShell() {
+    root.innerHTML = '<div class="app">' + sidebarHTML() +
+      '<main class="main" data-tab="' + esc(activeTab) + '"><div class="main-inner">' +
+        topBarHTML() + staleHTML() + '<div id="view-slot"></div>' + footHTML() +
+      '</div></main></div>';
+    slotEl = document.getElementById("view-slot");
+    mainEl = root.querySelector(".main");
+    mounted = true;
+  }
+
+  // 사이드바 탭 선택 표시만 제자리 갱신 (배지 값은 데이터 파생이라 리로드 없이는 변하지 않는다)
+  function paintNav() {
+    var tabs = root.querySelectorAll('[role="tab"]');
+    for (var i = 0; i < tabs.length; i++) {
+      var sel = tabs[i].id === "tab-" + activeTab;
+      tabs[i].setAttribute("aria-selected", sel ? "true" : "false");
+      if (sel) tabs[i].setAttribute("aria-current", "page"); else tabs[i].removeAttribute("aria-current");
+    }
+    if (mainEl) mainEl.setAttribute("data-tab", activeTab);
+  }
+
+  // 포커스 복원 키: 재렌더 후 같은 항목으로 되돌아갈 수 있는 안정 식별자
+  function focusKeyOf(el) {
+    if (!el || !el.getAttribute) return null;
+    var keys = ["data-rec-file", "data-rec-folder", "data-project-open", "data-exp", "data-role", "data-ticket"];
+    for (var i = 0; i < keys.length; i++) {
+      var host = el.closest ? el.closest("[" + keys[i] + "]") : null;
+      if (host) return keys[i] + '="' + host.getAttribute(keys[i]) + '"';
+    }
+    return null;
+  }
+
+  function paintView() {
+    if (!mounted) { mountShell(); }
+    var scrollY = window.pageYOffset || document.documentElement.scrollTop || 0;
+    var treeEl = document.querySelector(".rec-tree");
+    var treeTop = treeEl ? treeEl.scrollTop : 0;
+    var fkey = focusKeyOf(document.activeElement);
+
+    slotEl.innerHTML = (RENDERERS[activeTab] || renderHome)();
+
+    // 스크롤·포커스 복원 — 폴더를 토글했다고 화면이 맨 위로 튀지 않게
+    if (scrollY) window.scrollTo(0, scrollY);
+    var t2 = document.querySelector(".rec-tree");
+    if (t2 && treeTop) t2.scrollTop = treeTop;
+    if (fkey) {
+      var back = slotEl.querySelector("[" + fkey + "]");
+      if (back && back.focus) { try { back.focus({ preventScroll: true }); } catch (e) { try { back.focus(); } catch (e2) {} } }
+    }
   }
 
   function renderAll() {
-    root.innerHTML = '<div class="app">' + sidebarHTML() + mainHTML() + '</div>';
+    if (!mounted) { mountShell(); paintView(); return; }
+    paintNav();
+    paintView();
   }
 
   // ============================================================
@@ -1609,8 +1855,14 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
   function applyHash(focus) {
     var next = tabFromHash();
     closeModal();                                            // 탭 이동 시 열린 모달 닫기
-    if (next === "project") projectView = { mode: "list", id: null }; // 프로젝트 재진입은 목록부터
+    // 프로젝트 재진입은 목록부터 — 단 팔레트가 특정 프로젝트를 지목했으면 그 상세로 바로 간다
+    if (next === "project") {
+      if (pendingProject) { projectView = { mode: "detail", id: pendingProject }; pendingProject = null; }
+      else projectView = { mode: "list", id: null };
+    }
     if (next !== activeTab) { activeTab = next; renderAll(); }
+    else renderAll();
+    if (pendingRole && next === "team") { var pr = pendingRole; pendingRole = null; openRole(pr); }
     if (focus) { var p = document.getElementById("panel-" + activeTab); if (p && p.focus) { try { p.focus(); } catch (e) {} } }
   }
   if (typeof window !== "undefined" && window.addEventListener) {
@@ -1674,6 +1926,7 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
       '<iframe class="webview" src="' + esc(url) + '" sandbox="allow-scripts allow-same-origin allow-forms allow-popups" referrerpolicy="no-referrer" title="웹 미리보기"></iframe>');
   }
   function openViewer(path) {
+    pushRecent(path);                       // 팔레트의 '최근' 목록 재료
     var entry = contentByPath[path];
     var title = (entry && entry.title) ? entry.title : basename(path);
     var mdHtml = (entry && entry.table) ? tableHTML(entry.table)
@@ -1712,6 +1965,290 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
   }
 
   // ============================================================
+  // 커맨드 팔레트 (⌘K / Ctrl+K / ) — 이동 + 노트 전문 검색
+  //   이 대시보드의 해자는 "에이전트가 남긴 것들이 서로 연결돼 있다" 는 점이다.
+  //   폴더 탐색기는 본문을 가로질러 찾지 못한다 — 그 차이를 만드는 곳.
+  // ============================================================
+  var cmdkEl = document.getElementById("cmdk");
+  var cmdkInput = document.getElementById("cmdk-input");
+  var cmdkList = document.getElementById("cmdk-list");
+  var cmdkCount = document.getElementById("cmdk-count");
+  var cmdkCur = 0, cmdkRows = [], cmdkRelease = null, cmdkLastFocus = null;
+  var CMDK_ICON = { 이동: "◈", "할 일": "☑", 프로젝트: "◐", 팀: "◎", 기록: "▤" };
+  var RECENT_KEY = "bp-dash-recent";
+
+  function recentPaths() {
+    try { var a = JSON.parse(localStorage.getItem(RECENT_KEY) || "[]"); return Array.isArray(a) ? a : []; } catch (e) { return []; }
+  }
+  function pushRecent(path) {
+    if (!path) return;
+    try {
+      var a = recentPaths().filter(function (p) { return p !== path; });
+      a.unshift(path); localStorage.setItem(RECENT_KEY, JSON.stringify(a.slice(0, 8)));
+    } catch (e) {}
+  }
+
+  // 색인은 부팅 때 한 번 만든다(데이터가 바뀌면 페이지가 리로드되므로 재구축 불필요)
+  var CMDK_INDEX = (function () {
+    var idx = [];
+    TABS.forEach(function (tb) {
+      idx.push({ g: "이동", t: tb.label, sub: tb.label + " 탭으로 이동", kw: tb.label + " " + tb.id, act: { k: "tab", v: tb.id } });
+    });
+    todos.forEach(function (t) {
+      var dd = ddayLabel(t);
+      var stTxt = t.state === "done" ? "완료" : dd.txt;
+      idx.push({
+        g: "할 일", t: t.title, sub: (KIND_LABEL[t.kind] || t.kind) + " · " + stTxt,
+        kw: t.title + " " + (KIND_LABEL[t.kind] || "") + " " + (t.source || ""),
+        act: { k: "todo", v: t.source || "" }
+      });
+    });
+    projectList.forEach(function (p) {
+      idx.push({
+        g: "프로젝트", t: p.goal,
+        sub: p.done ? "완료" : ((p.phase ? p.phase + " 단계" : "진행 중") + (p.health ? " · " + p.health : "")),
+        kw: p.goal + " " + (p.phase || ""), act: { k: "project", v: p.id }
+      });
+    });
+    rosterRoles.forEach(function (r, i) {
+      var st = staffForRole(r);
+      idx.push({
+        g: "팀", t: st ? (st.name + " — " + r.name) : r.name, sub: r.focus || "역할 카드",
+        kw: (st ? st.name + " " + (st.mbti || "") + " " : "") + r.name + " " + (r.focus || ""),
+        act: { k: "role", v: "ri-" + i }
+      });
+    });
+    Object.keys(contentByPath).forEach(function (p) {
+      var e = contentByPath[p] || {};
+      idx.push({
+        g: "기록", t: e.title || basename(p), sub: recSrcLabel(recFolderKeyOf(p)) || basename(p),
+        kw: (e.title || "") + " " + p, body: e.content || "", act: { k: "record", v: p }
+      });
+    });
+    return idx;
+  })();
+
+  function hl(text, terms) {
+    var out = esc(String(text == null ? "" : text));
+    terms.forEach(function (tm) {
+      if (!tm) return;
+      var re = new RegExp("(" + tm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + ")", "gi");
+      out = out.replace(re, '<mark class="cmdk-hit">$1</mark>');
+    });
+    return out;
+  }
+  // 본문에서만 걸린 경우 그 대목을 잘라 보여준다 — 왜 이 결과가 나왔는지 알 수 있게
+  function snippetOf(body, term) {
+    var low = body.toLowerCase(), i = low.indexOf(term);
+    if (i < 0) return "";
+    var from = Math.max(0, i - 26), to = Math.min(body.length, i + term.length + 44);
+    return (from > 0 ? "…" : "") + body.slice(from, to).replace(/\s+/g, " ") + (to < body.length ? "…" : "");
+  }
+
+  function cmdkSearch(q) {
+    var needle = String(q || "").trim().toLowerCase();
+    if (!needle) {
+      // 빈 질의 = 최근 열어본 것 + 탭 이동
+      var rec = recentPaths().map(function (p) {
+        var e = contentByPath[p]; if (!e) return null;
+        return { it: { g: "최근", t: e.title || basename(p), sub: recSrcLabel(recFolderKeyOf(p)) || basename(p), act: { k: "record", v: p } }, terms: [], snip: "", score: 200 };
+      }).filter(Boolean);
+      var tabs = CMDK_INDEX.filter(function (x) { return x.g === "이동"; }).map(function (it) { return { it: it, terms: [], snip: "", score: 100 }; });
+      return rec.concat(tabs);
+    }
+    var terms = needle.split(/\s+/).filter(Boolean);
+    var out = [];
+    CMDK_INDEX.forEach(function (it) {
+      var hay = String(it.kw || "").toLowerCase();
+      var body = String(it.body || "").toLowerCase();
+      var score = 0, hitTitleAny = false;
+      for (var i = 0; i < terms.length; i++) {
+        var ti = hay.indexOf(terms[i]);
+        var bi = ti < 0 ? body.indexOf(terms[i]) : -1;
+        if (ti < 0 && bi < 0) return;            // 모든 낱말이 어딘가에 있어야 한다(AND)
+        if (ti === 0) { score += 120; hitTitleAny = true; }
+        else if (ti > 0) { score += 70; hitTitleAny = true; }
+        else score += 18;                         // 본문만 일치
+      }
+      if (it.g === "이동") score += 30;            // 탭 이동은 위로
+      out.push({ it: it, terms: terms, snip: hitTitleAny ? "" : snippetOf(String(it.body || ""), terms[0]) });
+      out[out.length - 1].score = score;
+    });
+    out.sort(function (a, b) { return b.score - a.score || String(a.it.t).length - String(b.it.t).length; });
+    return groupContiguous(out.slice(0, 40));
+  }
+
+  // 같은 머리글이 두 번 나오지 않게 그룹을 붙인다. 그룹 순서는 그 그룹의 최고 점수 순 —
+  // 가장 잘 맞는 항목이 여전히 첫 줄이고(Enter 기본값), 머리글은 한 번씩만 나온다.
+  function groupContiguous(rows) {
+    var byG = {}, order = [];
+    rows.forEach(function (r) {
+      var g = r.it.g;
+      if (!byG[g]) { byG[g] = []; order.push(g); }
+      byG[g].push(r);
+    });
+    order.sort(function (a, b) { return (byG[b][0].score || 0) - (byG[a][0].score || 0); });
+    var flat = [];
+    order.forEach(function (g) { flat = flat.concat(byG[g]); });
+    return flat;
+  }
+
+  function cmdkRender(q) {
+    var res = cmdkSearch(q);
+    cmdkRows = res;
+    if (!res.length) {
+      cmdkList.innerHTML = '<div class="cmdk-empty"><span class="em" aria-hidden="true">⌕</span>' +
+        '찾는 게 없어요. 노트 <b>본문</b>까지 찾으니 단어를 하나만 넣어보세요.</div>';
+      cmdkCount.textContent = "0건";
+      cmdkInput.setAttribute("aria-activedescendant", "");
+      return;
+    }
+    if (cmdkCur >= res.length) cmdkCur = res.length - 1;
+    if (cmdkCur < 0) cmdkCur = 0;
+    var html = "", lastG = null;
+    res.forEach(function (r, i) {
+      if (r.it.g !== lastG) { html += '<div class="cmdk-group-h">' + esc(r.it.g) + '</div>'; lastG = r.it.g; }
+      var sel = i === cmdkCur;
+      html += '<button class="cmdk-item" role="option" id="cmdk-o-' + i + '" type="button" data-cmdk-run="' + i + '"' +
+        ' aria-selected="' + (sel ? "true" : "false") + '">' +
+        '<span class="cmdk-kind" aria-hidden="true">' + (CMDK_ICON[r.it.g] || "▤") + '</span>' +
+        '<span class="cmdk-main"><span class="cmdk-t">' + hl(r.it.t, r.terms) + '</span>' +
+        (r.snip ? '<span class="cmdk-snip">' + hl(r.snip, r.terms) + '</span>'
+                : (r.it.sub ? '<span class="cmdk-sub">' + esc(r.it.sub) + '</span>' : '')) +
+        '</span></button>';
+    });
+    cmdkList.innerHTML = html;
+    cmdkCount.textContent = res.length + "건";
+    cmdkInput.setAttribute("aria-activedescendant", "cmdk-o-" + cmdkCur);
+    var cur = document.getElementById("cmdk-o-" + cmdkCur);
+    if (cur && cur.scrollIntoView) cur.scrollIntoView({ block: "nearest" });
+  }
+
+  function cmdkOpen() {
+    if (!cmdkEl || !cmdkEl.hasAttribute("hidden")) return;
+    cmdkLastFocus = document.activeElement;
+    cmdkEl.removeAttribute("hidden");
+    cmdkInput.value = ""; cmdkCur = 0;
+    cmdkRender("");
+    if (typeof G !== "undefined" && G.trap) { try { cmdkRelease = G.trap(cmdkEl.querySelector(".cmdk")); } catch (e) {} }
+    try { cmdkInput.focus(); } catch (e) {}
+  }
+  function cmdkOpened() { return cmdkEl && !cmdkEl.hasAttribute("hidden"); }
+  function cmdkClose() {
+    if (!cmdkOpened()) return;
+    cmdkEl.setAttribute("hidden", "");
+    cmdkList.innerHTML = "";
+    if (cmdkRelease) { try { cmdkRelease(); } catch (e) {} cmdkRelease = null; }
+    if (cmdkLastFocus && cmdkLastFocus.focus && cmdkLastFocus.isConnected) { try { cmdkLastFocus.focus(); } catch (e) {} }
+    cmdkLastFocus = null;
+  }
+  function cmdkMove(delta) {
+    if (!cmdkRows.length) return;
+    cmdkCur = (cmdkCur + delta + cmdkRows.length) % cmdkRows.length;
+    cmdkRender(cmdkInput.value);
+  }
+  function cmdkRun(i) {
+    var r = cmdkRows[i];
+    if (!r) return;
+    var a = r.it.act;
+    cmdkClose();
+    if (!a) return;
+    if (a.k === "tab") { location.hash = "#" + a.v; return; }
+    if (a.k === "todo") {
+      if (location.hash.replace(/^#/, "") !== "todos") { location.hash = "#todos"; }
+      if (a.v) setTimeout(function () { openViewer(a.v); }, 60);
+      return;
+    }
+    if (a.k === "project") {
+      projectView = { mode: "detail", id: a.v };
+      if (activeTab !== "project") { pendingProject = a.v; location.hash = "#project"; }
+      else renderAll();
+      return;
+    }
+    if (a.k === "role") {
+      if (activeTab !== "team") { pendingRole = a.v; location.hash = "#team"; }
+      else openRole(a.v);
+      return;
+    }
+    if (a.k === "record") {
+      pushRecent(a.v);
+      recView.file = a.v;
+      var fk = recFolderKeyOf(a.v); if (fk) recView.folder = fk;
+      if (activeTab !== "records") location.hash = "#records";
+      else renderAll();
+      return;
+    }
+  }
+  // 탭 전환은 hashchange 를 거치므로, 전환 뒤에 실행할 동작을 예약한다
+  var pendingRole = null, pendingProject = null;
+
+  if (cmdkEl) {
+    cmdkInput.addEventListener("input", function () { cmdkCur = 0; cmdkRender(cmdkInput.value); });
+    cmdkInput.addEventListener("keydown", function (e) {
+      if (e.key === "ArrowDown") { e.preventDefault(); cmdkMove(1); }
+      else if (e.key === "ArrowUp") { e.preventDefault(); cmdkMove(-1); }
+      else if (e.key === "Enter") { e.preventDefault(); cmdkRun(cmdkCur); }
+      else if (e.key === "Home") { e.preventDefault(); cmdkCur = 0; cmdkRender(cmdkInput.value); }
+      else if (e.key === "End") { e.preventDefault(); cmdkCur = cmdkRows.length - 1; cmdkRender(cmdkInput.value); }
+    });
+    cmdkEl.addEventListener("click", function (e) {
+      if (e.target && e.target.getAttribute && e.target.getAttribute("data-cmdk-backdrop") != null) { cmdkClose(); return; }
+      var run = e.target && e.target.closest ? e.target.closest("[data-cmdk-run]") : null;
+      if (run) { e.preventDefault(); cmdkRun(+run.getAttribute("data-cmdk-run")); }
+    });
+    cmdkList.addEventListener("mousemove", function (e) {
+      var it = e.target && e.target.closest ? e.target.closest("[data-cmdk-run]") : null;
+      if (!it) return;
+      var i = +it.getAttribute("data-cmdk-run");
+      if (i !== cmdkCur) { cmdkCur = i; cmdkRender(cmdkInput.value); }
+    });
+  }
+
+  // ── 단축키 도움말 ──────────────────────────────────────────
+  function openKeysHelp() {
+    var mod = isMac ? "⌘" : "Ctrl";
+    function row(keys, desc) {
+      return "<tr><td>" + keys.map(function (k) { return '<kbd class="kbd">' + esc(k) + "</kbd>"; }).join(" ") +
+        "</td><td>" + esc(desc) + "</td></tr>";
+    }
+    openModal("단축키",
+      '<table class="keys-tbl"><tbody>' +
+      '<tr><th colspan="2">찾기·이동</th></tr>' +
+      row([mod, "K"], "검색 열기 — 노트 본문까지 찾습니다") +
+      row(["/"], "검색 열기 (같음)") +
+      row(["1", "…", "6"], "탭 바로 이동 (홈·할 일·프로젝트·팀·칸반·기록)") +
+      row(["←", "→"], "탭 이동 (탭에 포커스가 있을 때)") +
+      '<tr><th colspan="2">목록</th></tr>' +
+      row(["j"], "다음 항목으로") +
+      row(["k"], "이전 항목으로") +
+      row(["↵"], "선택한 항목 열기") +
+      '<tr><th colspan="2">그 외</th></tr>' +
+      row(["?"], "이 도움말") +
+      row(["esc"], "검색·창 닫기") +
+      row([mod, "P"], "인쇄 (사이드바 없이 본문만 나옵니다)") +
+      "</tbody></table>");
+  }
+
+  // ── 목록 키보드 이동 (j / k / Enter) ───────────────────────
+  var LIST_SEL = ".todo-row, .rec-file-row, .rec-recent-row, .rec-nav-item, .proj-card, .role-card, [data-ticket], .kpi";
+  function listItems() {
+    if (!slotEl) return [];
+    var all = slotEl.querySelectorAll(LIST_SEL), out = [];
+    for (var i = 0; i < all.length; i++) if (all[i].offsetParent !== null) out.push(all[i]);
+    return out;
+  }
+  function listMove(delta) {
+    var items = listItems();
+    if (!items.length) return;
+    var cur = document.activeElement, at = -1;
+    for (var i = 0; i < items.length; i++) if (items[i] === cur || items[i].contains(cur)) { at = i; break; }
+    var next = at < 0 ? (delta > 0 ? 0 : items.length - 1) : (at + delta + items.length) % items.length;
+    for (var j = 0; j < items.length; j++) items[j].classList.remove("kbd-here");
+    items[next].classList.add("kbd-here");
+    try { items[next].focus({ preventScroll: false }); } catch (e) { try { items[next].focus(); } catch (e2) {} }
+  }
+
+  // ============================================================
   // 이벤트 위임 (읽기 전용 상호작용만)
   // ============================================================
   function onActivate(target) {
@@ -1720,6 +2257,9 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
     if (target.closest("[data-modal-close]")) { closeModal(); return; }
     // 모달 배경(딤) 클릭 = 닫기 (배경 자체가 target 일 때만)
     if (target.getAttribute && target.getAttribute("data-modal-backdrop") != null) { closeModal(); return; }
+    // 검색 열기 / 단축키 도움말
+    if (target.closest("[data-cmdk-open]")) { cmdkOpen(); return; }
+    if (target.closest("[data-keyshelp]")) { openKeysHelp(); return; }
     // 테마 토글 (라이트 ↔ 다크)
     var th = target.closest("[data-theme-toggle]");
     if (th) {
@@ -1776,7 +2316,7 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
     var recFile = target.closest("[data-rec-file]");
     if (recFile) {
       var fp = recFile.getAttribute("data-rec-file");
-      recView.file = fp;
+      recView.file = fp; pushRecent(fp);
       var fk = recFolderKeyOf(fp); if (fk) recView.folder = fk;
       renderAll(); return;
     }
@@ -1801,10 +2341,47 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
     if (a) { e.preventDefault(); openWebview(a.getAttribute("href")); return; }
     onActivate(e.target);
   });
-  // 키보드: 좌우/상하 방향키로 탭 이동 (tablist 로빙)
+  // 입력 중인지 — 단축키가 타이핑을 가로채지 않게
+  function isTyping(t) {
+    if (!t || !t.tagName) return false;
+    var tag = t.tagName.toLowerCase();
+    return tag === "input" || tag === "textarea" || tag === "select" || t.isContentEditable === true;
+  }
+
+  // 키보드: 팔레트(⌘K / /) · 탭 숫자 · 목록 j/k · 도움말 ? · Escape 스택
   document.addEventListener("keydown", function (e) {
-    if (e.key === "Escape" && modalOpen()) { e.preventDefault(); closeModal(); return; }
     var t = e.target;
+
+    // ⌘K / Ctrl+K — 어디서든 (입력 중에도)
+    if ((e.metaKey || e.ctrlKey) && (e.key === "k" || e.key === "K")) {
+      e.preventDefault();
+      if (cmdkOpened()) cmdkClose(); else cmdkOpen();
+      return;
+    }
+    // Escape 는 나중에 열린 것부터: 팔레트 → 모달
+    if (e.key === "Escape") {
+      if (cmdkOpened()) { e.preventDefault(); cmdkClose(); return; }
+      if (modalOpen()) { e.preventDefault(); closeModal(); return; }
+      return;
+    }
+    if (cmdkOpened()) return;              // 팔레트가 열려 있으면 나머지 단축키는 팔레트 몫
+    if (isTyping(t) || e.metaKey || e.ctrlKey || e.altKey) return;
+
+    // / — 검색 열기
+    if (e.key === "/") { e.preventDefault(); cmdkOpen(); return; }
+    // ? — 단축키 도움말
+    if (e.key === "?") { e.preventDefault(); if (!modalOpen()) openKeysHelp(); return; }
+    // 1~6 — 탭 바로 이동
+    if (/^[1-6]$/.test(e.key)) {
+      var ti = +e.key - 1;
+      if (TABS[ti]) { e.preventDefault(); location.hash = "#" + TABS[ti].id; }
+      return;
+    }
+    // j / k — 목록 이동 (모달이 열려 있으면 목록을 건드리지 않는다)
+    if (!modalOpen() && (e.key === "j" || e.key === "k")) {
+      e.preventDefault(); listMove(e.key === "j" ? 1 : -1); return;
+    }
+
     if (t && t.closest && t.closest('[role="tab"]')) {
       var idx = TABS.map(function (x) { return x.id; }).indexOf(activeTab);
       if (e.key === "ArrowDown" || e.key === "ArrowRight") { e.preventDefault(); location.hash = "#" + TABS[(idx + 1) % TABS.length].id; }

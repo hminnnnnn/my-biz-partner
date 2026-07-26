@@ -36,8 +36,13 @@ def load(p):
 status = load("state/status.json")
 team   = load("state/team.json")
 
-# --- (2) todos overdue 파생: open & due<오늘 → overdue (원본 파일엔 안 씀, 래퍼에만) ---
-today = datetime.date.today().isoformat()
+# --- (2) todos overdue 파생: open & due<기준일 → overdue (원본 파일엔 안 씀, 래퍼에만) ---
+# 기준일은 **데이터 기준일(status.today.date)** 이다. 대시보드도 같은 기준으로 기한을 계산하므로
+# 두 곳이 어긋날 수 없다. (W20 P0 결함: 여기서 시스템 날짜를 쓰고 대시보드는 데이터 날짜를 써서
+#  "0일 지남" · 미래 기한이 '지남' 으로 표기되고 할 일 탭의 오늘·예정 버킷이 비었다.)
+# today.date 가 없거나 형식이 어긋나면 시스템 날짜로 폴백한다.
+_basis = (status.get("today") or {}).get("date")
+today = _basis if isinstance(_basis, str) and len(_basis) == 10 else datetime.date.today().isoformat()
 todos = status.get("todos")
 if isinstance(todos, list):
     for t in todos:
