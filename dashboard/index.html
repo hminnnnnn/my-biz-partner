@@ -1159,6 +1159,57 @@
   }
   .st-rev .st-sn { width: 100%; margin-top: var(--g-space-1); }
 
+  /* ── 라이브 세션 (W22) — "지금 우리 회사가 돌아가는 중" ───
+     화면을 닫아도 작업은 계속 산다. 이 카드는 그 사실을 눈으로 보여준다. */
+  .live-wrap { display: flex; flex-direction: column; gap: var(--g-space-3); }
+  .live-card {
+    display: flex; gap: var(--g-space-4); align-items: flex-start;
+    background: var(--g-surface-sunken); border-radius: var(--g-radius-card);
+    padding: var(--g-space-4) var(--g-space-5);
+    border-left: 3px solid var(--g-border);
+  }
+  .live-card.working { border-left-color: var(--g-brand); background: var(--g-brand-soft); }
+  .live-card.blocked { border-left-color: var(--g-warning); background: var(--g-warning-soft); }
+  .live-card.done { border-left-color: var(--g-positive); }
+  .live-main { flex: 1; min-width: 0; }
+  .live-top { display: flex; align-items: center; gap: var(--g-space-3); flex-wrap: wrap; }
+  .live-name { font: var(--g-body-str); color: var(--g-fg); overflow: hidden; text-overflow: ellipsis; }
+  .live-state {
+    font: var(--g-micro); font-weight: 700; padding: 1px var(--g-space-2);
+    border-radius: var(--g-radius-1); flex: none;
+  }
+  .live-state.working { color: var(--g-brand); background: color-mix(in oklab, var(--g-brand) 18%, transparent); }
+  .live-state.blocked { color: var(--g-warning); background: color-mix(in oklab, var(--g-warning) 20%, transparent); }
+  .live-state.done { color: var(--g-positive); background: var(--g-positive-soft); }
+  .live-doing {
+    font: var(--g-caption); color: var(--g-fg-muted); margin-top: var(--g-space-2);
+    display: flex; align-items: center; gap: var(--g-space-2);
+  }
+  .live-doing code { font-size: .92em; }
+  .live-ans {
+    font: var(--g-caption); color: var(--g-fg); margin-top: var(--g-space-3);
+    background: var(--g-surface); border-radius: var(--g-radius-control);
+    padding: var(--g-space-3) var(--g-space-4); white-space: pre-wrap; overflow-wrap: anywhere;
+    max-height: 180px; overflow-y: auto;
+  }
+  .live-el { font: var(--g-micro); color: var(--g-fg-subtle); flex: none; }
+  /* 일하는 중 표시 — 점 세 개가 순서대로 */
+  .live-dots { display: inline-flex; gap: 3px; }
+  .live-dots i { width: 4px; height: 4px; border-radius: 50%; background: var(--g-brand); }
+  @media (prefers-reduced-motion: no-preference) {
+    .live-dots i { animation: livedot 1.2s ease-in-out infinite; }
+    .live-dots i:nth-child(2) { animation-delay: .15s; }
+    .live-dots i:nth-child(3) { animation-delay: .3s; }
+    @keyframes livedot { 0%,100% { opacity: .25 } 50% { opacity: 1 } }
+  }
+  /* 사이드바 · 홈의 얇은 표시 */
+  .live-pill {
+    display: inline-flex; align-items: center; gap: var(--g-space-2);
+    font: var(--g-micro); font-weight: 600; color: var(--g-brand);
+    background: var(--g-brand-soft); border-radius: var(--g-radius-1);
+    padding: 2px var(--g-space-3);
+  }
+
   /* ── 팀: 관계 지도 + 편성 이력 ──────────────────────────── */
   .relmap { width: 100%; max-width: 520px; margin: 0 auto; display: block; overflow: visible; }
   .relmap .edge { stroke-width: 1.5; fill: none; }
@@ -3081,6 +3132,119 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
     return out;
   }
 
+  // ============================================================
+  // W22 · 라이브 세션 — 지금 우리 회사가 무엇을 하고 있나
+  // ------------------------------------------------------------
+  // 원천은 전부 실데이터다: `claude agents --json` 의 세션 목록 + 세션 전사에서 뽑은 도구·답변.
+  // 정직: 실제로는 **한 번에 한 세션**이 일한다. 여러 명이 동시에 일하는 것처럼 꾸미지 않는다.
+  //       팀원 얼굴은 세션 이름에 그 이름이 **실제로 나올 때만** 붙인다.
+  // ============================================================
+  var liveSessions = [];
+  var liveTimer = null;
+
+  function staffFromText(txt) {
+    if (!txt) return null;
+    for (var i = 0; i < staffList.length; i++) {
+      var st = staffList[i];
+      if (st.name && String(txt).indexOf(st.name) >= 0) return st;
+    }
+    return null;
+  }
+  function elapsedText(ms) {
+    if (!ms) return "";
+    var sec = Math.max(0, Math.round((Date.now() - ms) / 1000));
+    if (sec < 60) return sec + "초";
+    var min = Math.round(sec / 60);
+    if (min < 60) return min + "분";
+    return Math.round(min / 60) + "시간";
+  }
+  var TOOL_LABEL = {
+    Read: "읽는 중", Write: "쓰는 중", Edit: "고치는 중", Bash: "실행 중",
+    Glob: "찾는 중", Grep: "훑는 중", WebSearch: "검색 중", WebFetch: "읽어오는 중", Task: "맡기는 중"
+  };
+
+  function liveCardHTML(s) {
+    var state = s.state === "working" ? "working" : s.state === "blocked" ? "blocked"
+      : s.state === "done" ? "done" : "";
+    var label = state === "working" ? "일하는 중" : state === "blocked" ? "답을 기다리는 중"
+      : state === "done" ? "끝남" : (s.state || "");
+    var st = staffFromText(s.name);
+    var who = st ? avatarHTML(st, st.name, "") : '<span class="avatar vacant" aria-hidden="true">◈</span>';
+    var doing = "";
+    if (state === "working" && s.doing && s.doing.tool) {
+      doing = '<div class="live-doing"><span class="live-dots" aria-hidden="true"><i></i><i></i><i></i></span>' +
+        esc(TOOL_LABEL[s.doing.tool] || s.doing.tool) +
+        (s.doing.target ? ' <code>' + esc(s.doing.target) + '</code>' : '') + '</div>';
+    }
+    var ans = "";
+    if (s.answer && (state === "done" || state === "blocked")) {
+      ans = '<div class="live-ans">' + esc(s.answer.length > 700 ? s.answer.slice(0, 700) + "…" : s.answer) + '</div>';
+    }
+    return '<div class="live-card ' + state + '">' +
+      '<span class="live-who">' + who + '</span>' +
+      '<div class="live-main">' +
+        '<div class="live-top">' +
+          '<span class="live-name">' + esc(s.name || "이름 없는 작업") + '</span>' +
+          '<span class="live-state ' + state + '">' + esc(label) + '</span>' +
+          '<span class="live-el">' + esc(elapsedText(s.startedAt)) + '</span>' +
+        '</div>' + doing + ans +
+      '</div></div>';
+  }
+
+  // 팀 탭 상단 블록 — 도는 게 없으면 아무것도 그리지 않는다(빈 카드로 자리를 먹지 않게)
+  function liveBlockHTML() {
+    if (!SERVER_MODE) return "";
+    var act = liveSessions.filter(function (s) { return s.state === "working" || s.state === "blocked"; });
+    var recent = liveSessions.filter(function (s) { return s.state === "done"; }).slice(-2);
+    var show = act.concat(recent);
+    if (!show.length) return "";
+    return '<section class="card" aria-labelledby="live-h" id="live-block">' +
+      '<h2 class="card-title" id="live-h">지금 하는 일 ' +
+        (act.length ? '<span class="live-pill">' + act.length + '건 진행 중</span>' : '<span class="count">· 최근</span>') +
+      '</h2>' +
+      '<div class="live-wrap">' + show.map(liveCardHTML).join("") + '</div>' +
+      '<div class="heat-sum">화면을 닫아도 계속 돌아가요 — 다시 열면 여기에 결과가 있어요.</div>' +
+    '</section>';
+  }
+
+  function fetchSessions() {
+    if (!SERVER_MODE) return;
+    fetch("/api/sessions", { cache: "no-store" })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) {
+        if (!j) return;
+        var before = JSON.stringify(liveSessions.map(function (s) { return [s.id, s.state, (s.doing || {}).tool]; }));
+        liveSessions = j.sessions || [];
+        var after = JSON.stringify(liveSessions.map(function (s) { return [s.id, s.state, (s.doing || {}).tool]; }));
+        if (before !== after) paintLive();
+      })
+      .catch(function () {});
+  }
+  // 라이브 블록만 갈아 끼운다 — 전체 재렌더는 스크롤·포커스를 깬다
+  function paintLive() {
+    var host = document.getElementById("live-block");
+    var html = liveBlockHTML();
+    if (host) {
+      if (!html) { host.remove(); }
+      else {
+        var tmp = document.createElement("div"); tmp.innerHTML = html;
+        host.replaceWith(tmp.firstChild);
+      }
+    } else if (html && activeTab === "team") {
+      paintView();   // 없다가 생긴 경우엔 뷰를 다시 그린다
+    }
+    var pill = document.getElementById("live-side");
+    if (pill) {
+      var n = liveSessions.filter(function (s) { return s.state === "working" || s.state === "blocked"; }).length;
+      pill.innerHTML = n ? '<span class="live-pill">지금 ' + n + '건 진행 중</span>' : "";
+    }
+  }
+  function startLivePolling() {
+    if (!SERVER_MODE || liveTimer) return;
+    fetchSessions();
+    liveTimer = setInterval(fetchSessions, 5000);
+  }
+
   // 관계 지도 — staff[].relationships 를 원형 배치 그래프로. 이름은 직접 라벨(색만으로 식별하지 않는다).
   function relmapHTML() {
     var nodes = staffList.filter(function (st) { return st && st.name; });
@@ -3237,7 +3401,7 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
       hired ? "우리 회사에 재직 중인 팀원들이에요. 카드를 누르면 성향·관계·직무 기준을 볼 수 있어요."
             : "프로젝트를 맡기면 필요한 팀원이 소집돼요. 카드에 각 직무가 만드는 산출물이 미리 보여요.",
       // 관계 지도는 정사각에 가까워 풀폭 카드에서 죽은 폭이 크다 — 편성 이력과 2단으로 폭을 회수한다
-      head + grid + (hired ? '<div class="split">' + relmapHTML() + rosterHistoryHTML() + '</div>' : ""));
+      liveBlockHTML() + head + grid + (hired ? '<div class="split">' + relmapHTML() + rosterHistoryHTML() + '</div>' : ""));
   }
   // 역할 카드 클릭 → 모달: 스태프가 있으면 "{이름} — {역할}" 직원 모달, 없으면 역할 md 모달
   function openRole(key) {
@@ -3613,6 +3777,7 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
       '<button class="refresh" data-refresh type="button" aria-label="새로고침">' +
         '<span class="ico" aria-hidden="true">↻</span>새로고침</button></div>';
   }
+  function liveSideHTML() { return '<div id="live-side"></div>'; }
   function footHTML() {
     // 무엇을 읽고 있는지 정직하게 밝힌다 — 서버 모드면 상태 파일 직독, 파일 모드면 래퍼.
     var srcLine = (SERVER_MODE && srvLive)
@@ -4863,6 +5028,7 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
     renderAll();
     backfillBodies();
     startPolling();
+    startLivePolling();
   }
 
   // "갱신 N초 전" 라벨을 1초마다 갱신 (전체 리로드 없이 표시만 최신화)

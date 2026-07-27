@@ -27,6 +27,7 @@ import socketserver
 import subprocess
 import sys
 import threading
+import time
 import uuid
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -68,6 +69,87 @@ def workspace_trusted():
         return False
 
 
+def _transcript_dir():
+    """세션 전사가 쌓이는 곳. Claude Code 는 cwd 를 '-' 로 치환한 폴더명을 쓴다."""
+    enc = os.path.realpath(ROOT).replace("/", "-")
+    return os.path.expanduser("~/.claude/projects/" + enc)
+
+
+def _live_line(session_id):
+    """전사에서 '지금 무엇을 하는 중' 한 줄 + 마지막 답변을 뽑는다.
+
+    `claude logs` 는 ANSI 터미널 화면 덤프라 화면에 못 넣는다(실측). 전사 JSONL 이
+    도구 호출과 깨끗한 텍스트를 준다.
+    """
+    path = os.path.join(_transcript_dir(), "%s.jsonl" % session_id)
+    if not os.path.isfile(path):
+        return {"doing": None, "answer": None}
+    doing, answer = None, None
+    try:
+        with open(path, encoding="utf-8", errors="replace") as f:
+            for line in f:
+                if '"assistant"' not in line:
+                    continue
+                try:
+                    d = json.loads(line)
+                except Exception:
+                    continue
+                if d.get("type") != "assistant":
+                    continue
+                for b in ((d.get("message") or {}).get("content") or []):
+                    if not isinstance(b, dict):
+                        continue
+                    if b.get("type") == "tool_use":
+                        inp = b.get("input") or {}
+                        target = inp.get("file_path") or inp.get("path") or inp.get("pattern") or ""
+                        if isinstance(target, str) and target.startswith(ROOT):
+                            target = target[len(ROOT):].lstrip("/")
+                        doing = {"tool": b.get("name"), "target": target[:80] if isinstance(target, str) else ""}
+                    elif b.get("type") == "text" and (b.get("text") or "").strip():
+                        answer = b["text"].strip()
+    except OSError:
+        pass
+    return {"doing": doing, "answer": (answer[-1200:] if answer else None)}
+
+
+_sessions_cache = {"at": 0.0, "data": None}
+
+
+def list_sessions():
+    """이 사업 폴더에서 도는 세션 목록 + 각자의 라이브 상태.
+
+    폴링마다 프로세스를 띄우지 않도록 2초 캐시를 둔다.
+    """
+    now = time.time()
+    if _sessions_cache["data"] is not None and now - _sessions_cache["at"] < 2.0:
+        return _sessions_cache["data"]
+    out = []
+    try:
+        p = subprocess.run(
+            ["claude", "agents", "--json", "--all", "--cwd", ROOT],
+            capture_output=True, text=True, timeout=20,
+        )
+        raw = json.loads(p.stdout or "[]")
+    except Exception:
+        raw = []
+    for s in raw if isinstance(raw, list) else []:
+        sid = s.get("sessionId") or ""
+        live = _live_line(sid) if sid else {"doing": None, "answer": None}
+        out.append({
+            "id": s.get("id") or sid[:8],
+            "sessionId": sid,
+            "kind": s.get("kind"),
+            "state": s.get("state") or s.get("status"),
+            "name": s.get("name"),
+            "startedAt": s.get("startedAt"),
+            "doing": live["doing"],
+            "answer": live["answer"],
+        })
+    _sessions_cache["at"] = now
+    _sessions_cache["data"] = out
+    return out
+
+
 class Handler(http.server.SimpleHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
 
@@ -104,6 +186,11 @@ class Handler(http.server.SimpleHTTPRequestHandler):
     # ── 정적: index.html 에 세션 토큰을 주입해 내려준다 ───────
     def do_GET(self):
         path = self.path.split("?", 1)[0]
+        if path == "/api/sessions":
+            ok, why = self._origin_ok()
+            if not ok:
+                return self._json(403, {"error": why})
+            return self._json(200, {"sessions": list_sessions()})
         if path == "/api/status":
             ok, why = self._origin_ok()
             if not ok:
@@ -140,7 +227,10 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
     # ── 파트너 호출 ──────────────────────────────────────────
     def do_POST(self):
-        if self.path.split("?", 1)[0] != "/api/ask":
+        route = self.path.split("?", 1)[0]
+        if route == "/api/jobs":
+            return self._dispatch_job()
+        if route != "/api/ask":
             return self._json(404, {"error": "not found"})
 
         ok, why = self._origin_ok()
@@ -175,6 +265,53 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             self._stream_claude(prompt, session)
         finally:
             _running.release()
+
+    # ── 백그라운드 작업 보내기 (W22) ─────────────────────────
+    # `claude --bg` 는 즉시 반환한다. 세션 주인은 Claude Code 이지 브라우저가 아니므로
+    # **화면을 닫아도 작업은 계속 산다.** 진행 상황은 /api/sessions 로 읽는다.
+    def _dispatch_job(self):
+        ok, why = self._origin_ok()
+        if not ok:
+            return self._json(403, {"error": why})
+        if not self._token_ok():
+            return self._json(403, {"error": "세션 토큰이 없거나 틀립니다"})
+        try:
+            n = int(self.headers.get("Content-Length", "0"))
+            payload = json.loads(self.rfile.read(n).decode("utf-8") or "{}")
+        except Exception:
+            return self._json(400, {"error": "본문을 읽을 수 없습니다"})
+
+        prompt = str(payload.get("prompt") or "").strip()
+        if not prompt:
+            return self._json(400, {"error": "지시문이 비었습니다"})
+        if len(prompt) > MAX_PROMPT:
+            return self._json(400, {"error": "지시문이 너무 깁니다(%d자 상한)" % MAX_PROMPT})
+        if not claude_available():
+            return self._json(503, {"error": "claude 명령을 찾을 수 없어요."})
+
+        # 순차 실행(대표 결정): 이미 도는 백그라운드 작업이 있으면 새로 보내지 않는다.
+        # 사용량이 예측 가능하고 같은 파일을 동시에 고쳐 충돌하는 일이 없다.
+        for s in list_sessions():
+            if s.get("kind") == "background" and s.get("state") in ("working", "blocked"):
+                return self._json(429, {
+                    "error": "이미 진행 중인 작업이 있어요",
+                    "running": {"id": s.get("id"), "name": s.get("name"), "state": s.get("state")},
+                })
+        try:
+            p = subprocess.run(
+                ["claude", "--bg", prompt],
+                cwd=ROOT, capture_output=True, text=True, timeout=60,
+            )
+        except Exception as e:
+            return self._json(500, {"error": "작업을 보내지 못했어요: %s" % e})
+        # 출력 예: "backgrounded · 8fa7b75e"
+        m = re.search(r"backgrounded\s*[·|]?\s*(?:\x1b\[[0-9;]*m)?([0-9a-f]{6,})", p.stdout or "")
+        job_id = m.group(1) if m else None
+        _sessions_cache["data"] = None          # 새 작업이 바로 목록에 뜨도록 캐시를 버린다
+        if not job_id:
+            return self._json(500, {"error": "작업 id 를 확인하지 못했어요",
+                                    "raw": (p.stdout or p.stderr or "")[:300]})
+        return self._json(200, {"id": job_id})
 
     def _stream_claude(self, prompt, session=""):
         """claude -p 를 실행하고 stdout 을 그대로 흘려보낸다 (chunked).
