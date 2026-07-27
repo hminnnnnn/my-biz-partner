@@ -976,6 +976,48 @@
   .pbtn[disabled]:hover { border-color: var(--g-border); background: var(--g-surface-sunken); }
   .partner-off { font: var(--g-micro); color: var(--g-fg-subtle); margin-top: var(--g-space-2); }
 
+  /* ── 할 일: 큐 + 작업대 (W21) ────────────────────────────
+     기록 탭(.rec-split)과 같은 2단 문법 — 학습이 한 번으로 끝난다. */
+  .todo-split { display: grid; gap: var(--g-space-5); align-items: start; }
+  @media (min-width: 900px) {
+    .todo-split { grid-template-columns: minmax(280px, 360px) minmax(0, 1fr); }
+    .todo-queue { position: sticky; top: var(--g-space-5); max-height: calc(100dvh - var(--g-space-9)); overflow-y: auto; }
+  }
+  .todo-queue { padding: var(--g-space-4); }
+  .todo-queue .bucket + .bucket { margin-top: var(--g-space-5); }
+  .todo-queue .bucket-head {
+    font: var(--g-micro); font-weight: 700; color: var(--g-fg-subtle);
+    text-transform: uppercase; letter-spacing: .04em;
+    padding: 0 var(--g-space-2) var(--g-space-2);
+  }
+  .todo-queue .rows { list-style: none; margin: 0; padding: 0; }
+  /* 큐 행: 클릭 = 선택(펼침이 아니라). 선택된 행이 왼쪽 굵은 띠로 보인다 */
+  .q-row {
+    display: flex; align-items: center; gap: var(--g-space-3); width: 100%; text-align: left;
+    background: transparent; border: 0; cursor: pointer;
+    border-radius: var(--g-radius-control); padding: var(--g-space-3);
+    transition: background-color var(--g-motion-tap);
+  }
+  .q-row:hover { background: var(--g-layer-hover); }
+  .q-row.sel { background: var(--g-brand-soft); box-shadow: inset 2px 0 0 0 var(--g-brand); }
+  .q-row .todo-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .q-row.sel .todo-title { font-weight: 600; }
+  .todo.is-done .q-row .todo-title { color: var(--g-fg-subtle); text-decoration: line-through; }
+
+  /* 작업대 — 고른 한 건의 맥락 전부 */
+  .todo-bench { min-width: 0; }
+  .bench-head { display: flex; align-items: center; gap: var(--g-space-3); flex-wrap: wrap; }
+  .bench-title { font: var(--g-title-3); color: var(--g-fg); margin: 0; flex: 1; min-width: 0; }
+  .bench-why { font: var(--g-caption); color: var(--g-fg-muted); margin: var(--g-space-3) 0 0; }
+  .bench-src {
+    display: flex; align-items: center; gap: var(--g-space-2); margin-top: var(--g-space-4);
+    font: var(--g-micro); flex-wrap: wrap;
+  }
+  .bench-body {
+    margin-top: var(--g-space-5); padding-top: var(--g-space-5);
+    border-top: 1px solid var(--g-border);
+  }
+
   /* ── 위키 내부 링크 (본문 안 경로 → 눌러 열기) ──────────
      옵시디언·노션의 그 감각: 문서를 읽다가 언급된 문서로 그대로 건너뛴다.
      밑줄이 아니라 은은한 배경 + 브랜드 잉크 — 본문 흐름을 끊지 않으면서 눌러진다는 게 보이게. */
@@ -1004,6 +1046,11 @@
   .xlink .ic { color: var(--g-fg-subtle); flex: none; }
   .xlink .tx { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .xlink-h { font: var(--g-micro); font-weight: 700; color: var(--g-fg-subtle); text-transform: uppercase; letter-spacing: .04em; margin-top: var(--g-space-4); }
+  /* 겹친 낱말 — 이 추천이 나온 근거 */
+  .hitw {
+    flex: none; font: var(--g-micro); color: var(--g-brand);
+    background: var(--g-brand-soft); border-radius: var(--g-radius-1); padding: 0 var(--g-space-2);
+  }
 
   /* ── 인라인 본문 발췌 (할 일 상세 — 기록 탭 리딩 문법 통일) ── */
   .snip {
@@ -2228,12 +2275,39 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
     }
     return true;
   }
+  // ── 큐 + 작업대 (W21) ──────────────────────────────────────
+  // 수직 나열이 문제가 아니라 **할 일이 끝나지 않는 것**이 문제였다(보기만 되고 행동이 없었다).
+  // 그래서 좌=우선순위 큐 / 우=작업대(맥락 전부 + 행동) 2단으로 바꾼다.
+  // 기록 탭과 같은 문법이라 학습이 한 번으로 끝난다.
+  var todoView = { sel: null };
+
+  // 큐 행 — 보존 계약 훅(.bucket · .todo-row)은 유지하고, 클릭은 '펼침' 이 아니라 '선택' 이다.
+  function queueRow(t, gi, terms) {
+    var dd = ddayLabel(t);
+    var sel = todoView.sel === gi;
+    var ov = (t.state !== "done" && bucket(t) === "past") ? '<span class="ov" aria-hidden="true"></span>' : "";
+    return '<li class="todo' + (t.state === "done" ? " is-done" : "") + '">' +
+      '<button class="todo-row q-row' + (sel ? " sel" : "") + '" type="button" data-todo-sel="' + gi + '"' +
+        (sel ? ' aria-current="true"' : '') + '>' +
+        '<span class="kind ' + esc(t.kind) + '">' + esc(KIND_LABEL[t.kind] || t.kind) + '</span>' +
+        '<span class="todo-title">' + ov + ((terms && terms.length) ? hlm(t.title, terms) : esc(t.title)) + '</span>' +
+        '<span class="todo-meta ' + dd.cls + '">' + esc(t.state === "done" ? "완료" : dd.txt) + '</span>' +
+      '</button></li>';
+  }
+
   function todoListHTML() {
     var terms = todoFilter.q.trim() ? [todoFilter.q.trim()] : [];
     var filtered = todos.map(function (t, i) { return { t: t, i: i }; }).filter(function (o) { return todoMatches(o.t); });
     var actives = filtered.filter(function (o) { return o.t.state !== "done"; });
     var dones = filtered.filter(function (o) { return o.t.state === "done"; });
     var anyFilter = todoFilter.kind !== "all" || todoFilter.due !== "all" || !!todoFilter.q.trim();
+
+    // 선택이 없거나 걸러져 사라졌으면 큐 맨 위(가장 급한 것)를 고른다 — 열자마자 작업대가 차 있게
+    var visible = actives.slice().sort(function (a, b) { return rank(a.t) - rank(b.t); });
+    var stillThere = false;
+    visible.forEach(function (o) { if (o.i === todoView.sel) stillThere = true; });
+    dones.forEach(function (o) { if (o.i === todoView.sel) stillThere = true; });
+    if (!stillThere) todoView.sel = visible.length ? visible[0].i : (dones.length ? dones[0].i : null);
 
     function bucketBlock(key, label, cls, emptyMsg, emptyEm) {
       var items = actives.filter(function (o) { return bucket(o.t) === key; })
@@ -2242,21 +2316,21 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
       var body;
       if (items.length) {
         body = '<ul class="rows">';
-        items.forEach(function (o) { body += todoRow(o.t, o.i, terms); });
+        items.forEach(function (o) { body += queueRow(o.t, o.i, terms); });
         body += '</ul>';
       } else {
         body = '<div class="empty"><span class="em">' + emptyEm + '</span>' + esc(emptyMsg) + '</div>';
       }
       return '<div class="bucket ' + cls + '"><div class="bucket-head">' + esc(label) +
-        ' <span class="bn">' + items.length + '건</span></div><div class="card">' + body + '</div></div>';
+        ' <span class="bn">' + items.length + '건</span></div>' + body + '</div>';
     }
     var buckets =
       bucketBlock("past", "지난 (먼저 처리)", "past", "지난 일이 없어요. 깔끔해요.", "✅") +
       bucketBlock("today", "오늘", "today", "오늘 마감할 일이 없어요.", "🧹") +
       bucketBlock("later", "예정 · 열린 이슈", "later", "예정된 일이 없어요.", "📅");
     if (!buckets) {
-      buckets = '<div class="card"><div class="empty rec-search-empty"><span class="em">🔍</span>' +
-        '조건에 맞는 할 일이 없어요. 필터를 넓혀 보세요.</div></div>';
+      buckets = '<div class="empty rec-search-empty"><span class="em">🔍</span>' +
+        '조건에 맞는 할 일이 없어요. 필터를 넓혀 보세요.</div>';
     }
     // 완료 — 기본 접힘. 상태 파일에 완료 시각이 없으므로 "오늘 완료" 라고 단정하지 않는다.
     var doneBlock = "";
@@ -2265,9 +2339,150 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
         (openSet["fold-todo-done"] ? "true" : "false") + '" aria-controls="fold-todo-done">' +
         '<span class="tw" aria-hidden="true">›</span>완료<span class="n">' + dones.length + '건</span></button>' +
         '<div class="fold-b" id="fold-todo-done"' + (openSet["fold-todo-done"] ? "" : " hidden") + '><ul class="rows">' +
-        dones.map(function (o) { return todoRow(o.t, o.i, terms); }).join("") + '</ul></div></div>';
+        dones.map(function (o) { return queueRow(o.t, o.i, terms); }).join("") + '</ul></div></div>';
     }
-    return buckets + doneBlock;
+    return '<aside class="card todo-queue" aria-label="할 일 큐">' + buckets + doneBlock + '</aside>' +
+      todoBenchHTML(terms);
+  }
+
+  // 비슷한 지난 기록 — 제목의 낱말이 본문에 나오는 기록. **낱말 일치**임을 화면에 밝힌다(추론 아님).
+  //
+  // 그냥 낱말 수만 세면 '정리·결과·확인' 같은 흔한 말로 무관한 문서가 잔뜩 걸린다(실측: 무관한
+  // 프로젝트 계획서 4건). 그래서 **흔한 낱말은 값을 낮춘다** — 전체 기록의 40% 이상에 나오는
+  // 낱말은 버리고, 드물수록 점수를 높게 준다(문서빈도 역가중). 한국어 명사는 2음절이 많아
+  // 길이로는 못 거른다.
+  var _dfCache = null;
+  function docFreq() {
+    if (_dfCache) return _dfCache;
+    var df = {}, recs = allRecords(), n = 0;
+    recs.forEach(function (f) {
+      var e = contentByPath[f.path];
+      if (!e || !e.content) return;
+      n++;
+      var seen = {};
+      String((f.title || "") + " " + e.content).replace(/[^가-힣a-zA-Z0-9]+/g, " ").split(" ")
+        .forEach(function (w) { if (w.length >= 2 && !seen[w]) { seen[w] = 1; df[w] = (df[w] || 0) + 1; } });
+    });
+    _dfCache = { df: df, n: n || 1 };
+    return _dfCache;
+  }
+  function similarRecords(t, limit) {
+    var words = String(t.title || "").replace(/[^가-힣a-zA-Z0-9]+/g, " ").split(" ")
+      .filter(function (w) { return w.length >= 2; });
+    if (!words.length) return [];
+    var D = docFreq();
+    // 흔한 낱말 제거 + 드문 낱말 가중
+    var scored = [];
+    words.forEach(function (w) {
+      var f = (D.df[w] || 0) / D.n;
+      if (f > 0.4) return;                       // 열 문서 중 넷 이상에 나오면 변별력이 없다
+      scored.push({ w: w, weight: 1 / (1 + (D.df[w] || 0)) });
+    });
+    if (!scored.length) return [];
+    var out = [];
+    allRecords().forEach(function (f) {
+      if (!f.path || f.path === t.source) return;
+      var e = contentByPath[f.path];
+      var body = (e && e.content) ? String(e.content) : "";
+      var hay = (f.title || "") + " " + body;
+      var score = 0, hitWords = [];
+      scored.forEach(function (s) { if (hay.indexOf(s.w) >= 0) { score += s.weight; hitWords.push(s.w); } });
+      if (hitWords.length) out.push({ f: f, score: score, words: hitWords });
+    });
+    // 낱말 하나만 걸린 건 우연일 확률이 높다 — 둘 이상 걸린 게 있으면 그것만 보여준다
+    var multi = out.filter(function (o) { return o.words.length >= 2; });
+    if (multi.length) out = multi;
+    out.sort(function (a, b) { return b.score - a.score || String(b.f.date || "").localeCompare(String(a.f.date || "")); });
+    return out.slice(0, limit || 4);
+  }
+
+  // 왜 지금 이 항목인지 — 전부 데이터 파생(상수로 지어낸 긴급함 금지)
+  function whyNow(t) {
+    var b = bucket(t), d = dayDiff(t.due);
+    if (t.state === "done") return "완료된 항목이에요.";
+    if (b === "past") return "기한이 " + Math.abs(d) + "일 지났어요 — 큐 맨 앞에 두는 이유예요.";
+    if (b === "today") return "오늘이 기한이에요.";
+    if (t.kind === "issue" && !t.due) return "기한 없이 열려 있는 이슈예요 — 닫으려면 방침이 필요해요.";
+    if (d != null) return d + "일 뒤가 기한이에요.";
+    return "기한이 없는 항목이에요.";
+  }
+
+  // ── 작업대 — 선택한 한 건의 맥락 전부 + 행동 ──────────────
+  function todoBenchHTML(terms) {
+    var gi = todoView.sel;
+    if (gi == null || !todos[gi]) {
+      return '<section class="card todo-bench"><div class="empty"><span class="em">✅</span>' +
+        '지금 챙길 일이 없어요. 왼쪽에서 항목을 고르면 여기에 맥락이 열려요.</div></section>';
+    }
+    var t = todos[gi], dd = ddayLabel(t);
+    var sn = t.source ? bodySnippet(t.source, 1200) : null;
+    var body;
+    if (t.source && hasBody(t.source)) {
+      var e = contentByPath[t.source];
+      body = e.table ? tableHTML(e.table)
+        : '<div class="md-body">' + renderMarkdown(e.content || "", null, dirOf(t.source)) + '</div>';
+    } else if (sn) {
+      body = '<div class="snip">' + esc(sn) + '</div>';
+    } else if (t.source) {
+      body = '<div class="snip empty-snip">원본을 아직 못 읽었어요.' +
+        (SERVER_MODE ? ' 잠시 뒤 다시 열어 보세요.' : ' <code>./dashboard.sh</code> 로 열면 파일에서 바로 읽어와요.') + '</div>';
+    } else {
+      body = '<div class="snip empty-snip">이 항목에는 연결된 원본 기록이 없어요.</div>';
+    }
+
+    // 교차 연결 — 이 원본을 참조하는 프로젝트·형제 산출물
+    var xl = "";
+    if (t.source) {
+      var bl = backlinksOf(t.source).filter(function (x) { return x.k !== "todo"; });
+      var sib = siblingsOf(t.source);
+      if (bl.length || sib.length) {
+        xl = '<div class="xlink-h">이 기록이 쓰이는 곳</div><div class="xlinks">' +
+          bl.map(function (x) {
+            return '<button class="xlink" type="button" data-project-open="' + esc(x.v) + '">' +
+              '<span class="ic" aria-hidden="true">◐</span><span class="tx">' + esc(x.t) + '</span></button>';
+          }).concat(sib.map(function (f) {
+            return '<button class="xlink" type="button" data-inlink="' + esc(f.path) + '">' +
+              '<span class="ic" aria-hidden="true">▤</span><span class="tx">' + esc(f.title || basename(f.path)) + '</span></button>';
+          })).join("") + '</div>';
+      }
+    }
+    // 비슷한 지난 기록 — "그때 어떻게 했더라" 에 답한다
+    var sim = similarRecords(t, 4);
+    var simHTML = sim.length
+      ? '<div class="xlink-h">비슷한 지난 기록 <span style="font-weight:400;text-transform:none;letter-spacing:0">· 제목 낱말이 겹치는 것</span></div>' +
+        '<div class="xlinks">' + sim.map(function (s) {
+          // 같은 제목이 여러 폴더에 있을 수 있다(00-계획.md 가 프로젝트마다 있다) — 출처를 함께 보인다
+          var src = recSrcLabel(s.f.fk);
+          // 겹친 낱말을 드러낸다 — 왜 이게 여기 있는지 보이면 노이즈가 근거가 된다
+          return '<button class="xlink" type="button" data-inlink="' + esc(s.f.path) + '"' +
+            ' title="' + esc(s.f.path) + '">' +
+            '<span class="ic" aria-hidden="true">▤</span>' +
+            '<span class="tx">' + esc(s.f.title || basename(s.f.path)) + (src ? ' · ' + esc(src) : '') + '</span>' +
+            '<span class="hitw">' + esc(s.words.slice(0, 3).join("·")) + '</span></button>';
+        }).join("") + '</div>'
+      : "";
+
+    return '<section class="card todo-bench" aria-labelledby="bench-h">' +
+      '<div class="bench-head">' +
+        '<span class="kind ' + esc(t.kind) + '">' + esc(KIND_LABEL[t.kind] || t.kind) + '</span>' +
+        '<h2 class="bench-title" id="bench-h">' + esc(t.title) + '</h2>' +
+        '<span class="todo-meta ' + dd.cls + '">' + esc(t.state === "done" ? "완료" : dd.txt) + '</span>' +
+      '</div>' +
+      '<p class="bench-why">' + esc(whyNow(t)) + '</p>' +
+      (t.source ? '<div class="bench-src"><button class="inlink" type="button" data-inlink="' + esc(t.source) + '">' +
+        esc(t.source) + '</button>' +
+        '<button class="g-btn g-btn--secondary g-btn--sm" type="button" data-copy="' + esc(t.source) + '" aria-label="경로 복사">⧉</button></div>' : '') +
+      '<div class="bench-body">' + body + '</div>' +
+      xl + simHTML +
+      partnerActions("파트너에게 시키기", t.state === "done"
+        ? [{ id: "todo.context", arg: String(gi), label: "지난 맥락 찾기", ic: "⌕" }]
+        : [
+            { id: "todo.draft", arg: String(gi), label: "답장 초안", ic: "✎" },
+            { id: "todo.context", arg: String(gi), label: "지난 맥락 찾기", ic: "⌕" },
+            { id: "todo.done", arg: String(gi), label: "완료 처리", ic: "✓" },
+            { id: "todo.defer", arg: String(gi), label: "내일로", ic: "→" }
+          ]) +
+    '</section>';
   }
   function renderTodos() {
     function cnt(fn) { return todos.filter(fn).length; }
@@ -2293,8 +2508,9 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
         (todoFilter.q ? '<button class="fx" type="button" data-tf-clear aria-label="검색 지우기">✕</button>' : '') + '</span>' +
       '<span class="fresult" id="todo-count"></span>' +
     '</div>';
-    var content = fbar + '<div id="todo-body">' + todoListHTML() + '</div>';
-    return panelWrap("todos", "리마인더와 이슈를 기한별로 모았어요. 항목을 펼치면 원본 본문과 관련 항목이 그 자리에서 보여요.", content);
+    var content = fbar + '<div id="todo-body" class="todo-split">' + todoListHTML() + '</div>';
+    return panelWrap("todos",
+      "왼쪽은 급한 순서, 오른쪽은 고른 한 건의 맥락 전부예요. 아래 버튼으로 파트너에게 바로 시킬 수 있어요.", content);
   }
   // 목록만 다시 그린다 (필터·검색) — 입력 포커스와 스크롤을 지킨다
   function paintTodoList() {
@@ -4000,6 +4216,18 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
       if (body) { if (willOpen) body.removeAttribute("hidden"); else body.setAttribute("hidden", ""); }
       return;
     }
+    // ── 할 일 큐에서 선택 → 작업대 교체 (부분 렌더) ──
+    var ts2 = target.closest("[data-todo-sel]");
+    if (ts2) {
+      todoView.sel = +ts2.getAttribute("data-todo-sel");
+      paintTodoList();
+      // 서버 모드: 원본 본문이 임베드에 없으면 파일에서 읽어와 작업대를 채운다
+      var src = (todos[todoView.sel] || {}).source;
+      if (SERVER_MODE && src && !hasBody(src)) {
+        ensureBody(src, function (filled) { if (filled && (todos[todoView.sel] || {}).source === src) paintTodoList(); });
+      }
+      return;
+    }
     // ── 할 일로 점프 (홈 시간축 점 · 그다음 후보 · 백링크) ──
     var tj = target.closest("[data-todo-jump]");
     if (tj) {
@@ -4044,14 +4272,14 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
     onActivate(e.target);
   });
 
-  // 점프해 온 할 일을 펼쳐서 화면에 보인다 (홈 시간축·백링크에서 진입)
+  // 점프해 온 할 일을 작업대에 띄운다 (홈 시간축·백링크에서 진입)
   function focusPendingTodo() {
     if (!pendingTodo) return;
-    var idx = pendingTodo; pendingTodo = null;
-    var row = document.querySelector('#panel-todos [data-exp="todo-' + idx + '"]');
+    var idx = +pendingTodo; pendingTodo = null;
+    if (!todos[idx]) return;
+    if (todoView.sel !== idx) { todoView.sel = idx; paintTodoList(); }
+    var row = document.querySelector('#panel-todos [data-todo-sel="' + idx + '"]');
     if (!row) return;
-    var host = row.closest(".todo");
-    if (host) { host.classList.add("open"); row.setAttribute("aria-expanded", "true"); }
     try { row.scrollIntoView({ block: "center", behavior: "smooth" }); } catch (e) { row.scrollIntoView(); }
     row.classList.add("kbd-here");
     try { row.focus({ preventScroll: true }); } catch (e2) {}
