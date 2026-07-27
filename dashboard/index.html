@@ -886,6 +886,96 @@
   .fold-b { padding-top: var(--g-space-2); }
   .todo.is-done .todo-title { color: var(--g-fg-subtle); text-decoration: line-through; }
 
+  /* ── 파트너 러너 (W21) — 시킨 일이 실행되는 곳 ───────────
+     모달이 아니라 우하단 도킹: 실행되는 동안에도 화면을 계속 볼 수 있어야 한다. */
+  .runner[hidden] { display: none !important; }
+  .runner {
+    position: fixed; right: var(--g-space-6); bottom: var(--g-space-6); z-index: var(--g-z-overlay);
+    width: min(460px, calc(100vw - var(--g-space-8)));
+    max-height: min(70dvh, 620px); display: flex; flex-direction: column;
+    background: var(--g-surface-raised); border: var(--g-elev-border);
+    border-radius: var(--g-radius-sheet); box-shadow: var(--g-elev-3); overflow: hidden;
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .runner { animation: runnerin var(--g-motion-reveal); }
+    @keyframes runnerin { from { opacity: 0; transform: translateY(12px) } }
+  }
+  .runner-head {
+    display: flex; align-items: center; gap: var(--g-space-3); flex: none;
+    padding: var(--g-space-4) var(--g-space-5); border-bottom: 1px solid var(--g-border);
+  }
+  .runner-title { font: var(--g-label); color: var(--g-fg); flex: 1; min-width: 0;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .runner-x {
+    background: transparent; border: 0; color: var(--g-fg-subtle); cursor: pointer;
+    font: var(--g-caption); padding: var(--g-space-1) var(--g-space-2); border-radius: var(--g-radius-1);
+  }
+  .runner-x:hover { color: var(--g-fg); background: var(--g-layer-hover); }
+  /* 상태점: 실행 중이면 맥동, 끝나면 정적 */
+  .runner-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--g-fg-subtle); flex: none; }
+  .runner.busy .runner-dot { background: var(--g-brand); }
+  .runner.done .runner-dot { background: var(--g-positive); }
+  .runner.fail .runner-dot { background: var(--g-critical); }
+  @media (prefers-reduced-motion: no-preference) {
+    .runner.busy .runner-dot { animation: rpulse 1.1s ease-in-out infinite; }
+    @keyframes rpulse { 0%,100% { opacity: 1 } 50% { opacity: .35 } }
+  }
+  /* 무엇을 보냈는지 언제나 열어볼 수 있다 — 사용자가 모르는 말이 나가지 않게(정직) */
+  .runner-ask { flex: none; border-bottom: 1px solid var(--g-border); background: var(--g-surface-sunken); }
+  .runner-ask summary {
+    font: var(--g-micro); color: var(--g-fg-subtle); cursor: pointer;
+    padding: var(--g-space-2) var(--g-space-5); list-style: none;
+  }
+  .runner-ask summary::-webkit-details-marker { display: none; }
+  .runner-ask summary::before { content: "▸ "; }
+  .runner-ask[open] summary::before { content: "▾ "; }
+  .runner-ask pre {
+    margin: 0; padding: 0 var(--g-space-5) var(--g-space-4);
+    font: var(--g-micro); font-family: var(--g-font-mono); color: var(--g-fg-muted);
+    white-space: pre-wrap; overflow-wrap: anywhere; max-height: 140px; overflow-y: auto;
+  }
+  .runner-body {
+    flex: 1; margin: 0; padding: var(--g-space-5); overflow-y: auto;
+    font: var(--g-caption); font-family: var(--g-font-mono); color: var(--g-fg);
+    white-space: pre-wrap; overflow-wrap: anywhere;
+  }
+  .runner-foot {
+    flex: none; display: flex; flex-wrap: wrap; gap: var(--g-space-2);
+    padding: var(--g-space-4) var(--g-space-5); border-top: 1px solid var(--g-border);
+  }
+  .runner-foot:empty { display: none; }
+  .runner-reply[hidden] { display: none !important; }
+  .runner-reply {
+    flex: none; display: flex; gap: var(--g-space-2); align-items: center;
+    padding: var(--g-space-3) var(--g-space-5); border-top: 1px solid var(--g-border);
+  }
+  .runner-reply input {
+    flex: 1; min-width: 0; font: var(--g-caption); color: var(--g-fg);
+    background: var(--g-surface-sunken); border: 1px solid var(--g-border);
+    border-radius: var(--g-radius-control); padding: var(--g-space-3) var(--g-space-4);
+    transition: border-color var(--g-motion-state), box-shadow var(--g-motion-state);
+  }
+  .runner-reply input:focus-visible { border-color: var(--g-brand); box-shadow: var(--g-focus-ring); outline: none; }
+
+  /* 행동 버튼 줄 (할 일·프로젝트·기록 공용) */
+  .acts-partner { display: flex; flex-wrap: wrap; gap: var(--g-space-2); margin-top: var(--g-space-4); }
+  .acts-partner .lbl {
+    width: 100%; font: var(--g-micro); font-weight: 700; color: var(--g-fg-subtle);
+    text-transform: uppercase; letter-spacing: .04em;
+  }
+  .pbtn {
+    display: inline-flex; align-items: center; gap: var(--g-space-2);
+    font: var(--g-caption); color: var(--g-fg); background: var(--g-surface-sunken);
+    border: 1px solid var(--g-border); border-radius: var(--g-radius-control);
+    padding: var(--g-space-2) var(--g-space-4); cursor: pointer;
+    transition: border-color var(--g-motion-state), background-color var(--g-motion-tap);
+  }
+  .pbtn:hover { border-color: var(--g-brand); background: var(--g-brand-soft); }
+  .pbtn .ic { color: var(--g-brand); }
+  .pbtn[disabled] { opacity: .5; cursor: not-allowed; }
+  .pbtn[disabled]:hover { border-color: var(--g-border); background: var(--g-surface-sunken); }
+  .partner-off { font: var(--g-micro); color: var(--g-fg-subtle); margin-top: var(--g-space-2); }
+
   /* ── 위키 내부 링크 (본문 안 경로 → 눌러 열기) ──────────
      옵시디언·노션의 그 감각: 문서를 읽다가 언급된 문서로 그대로 건너뛴다.
      밑줄이 아니라 은은한 배경 + 브랜드 잉크 — 본문 흐름을 끊지 않으면서 눌러진다는 게 보이게. */
@@ -1109,6 +1199,27 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
 </div>
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<!-- 파트너 러너 (W21) — 대시보드에서 시킨 일이 실행되는 곳. 스트리밍 출력.
+     화면을 가리지 않도록 모달이 아니라 우하단 도킹 패널. 닫힘 = [hidden] → display:none. -->
+<div class="runner" id="runner" hidden aria-live="polite">
+  <div class="runner-head">
+    <span class="runner-dot" id="runner-dot" aria-hidden="true"></span>
+    <span class="runner-title" id="runner-title">파트너</span>
+    <button class="runner-x" type="button" data-runner-close aria-label="닫기">✕</button>
+  </div>
+  <details class="runner-ask" id="runner-ask">
+    <summary>보낸 말 보기</summary>
+    <pre id="runner-prompt"></pre>
+  </details>
+  <pre class="runner-body" id="runner-body"></pre>
+  <!-- 이어서 답하기 — 파트너는 되묻는다(권한 승인·범위 확인). 한 번 쏘고 끝나면 일이 안 끝난다. -->
+  <div class="runner-reply" id="runner-reply" hidden>
+    <input id="runner-input" type="text" placeholder="답하기 — 예: 승인. 진행해줘" aria-label="파트너에게 답하기" autocomplete="off">
+    <button class="g-btn g-btn--soft g-btn--sm" type="button" data-runner-send>보내기</button>
+  </div>
+  <div class="runner-foot" id="runner-foot"></div>
+</div>
 
 <!-- 시각화 호버 툴팁 (스파크라인·막대·히트맵·시간축 공용 — 위임 핸들러 1개가 [data-tip] 을 읽는다).
      닫힘 = [hidden] → display:none (클릭 삼킴 방지 규약과 동일 처리). -->
@@ -1592,6 +1703,13 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
             (t.source ? '<button class="g-btn g-btn--soft g-btn--sm" type="button" data-viewer="' + esc(t.source) + '">전체 보기</button>' : '') +
             '<button class="g-btn g-btn--secondary g-btn--sm" type="button" data-copy="' + esc(t.source || "") + '" aria-label="경로 복사">⧉ 복사</button>' +
           '</div>' +
+          // 보기만 하고 끝나던 목록에 **행동**을 붙인다 — 할 일이 끝나야 목록이 목록으로 산다
+          partnerActions("파트너에게 시키기", [
+            { id: "todo.draft", arg: String(gi), label: "답장 초안", ic: "✎" },
+            { id: "todo.context", arg: String(gi), label: "지난 맥락 찾기", ic: "⌕" },
+            { id: "todo.done", arg: String(gi), label: "완료 처리", ic: "✓" },
+            { id: "todo.defer", arg: String(gi), label: "내일로", ic: "→" }
+          ]) +
         '</div>' +
       '</div></div>' +
     '</li>';
@@ -3210,6 +3328,218 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
       '<a class="g-btn g-btn--secondary g-btn--sm" href="' + esc(url) + '" target="_blank" rel="noopener noreferrer">새 탭에서 열기 ↗</a></div>' +
       '<iframe class="webview" src="' + esc(url) + '" sandbox="allow-scripts allow-same-origin allow-forms allow-popups" referrerpolicy="no-referrer" title="웹 미리보기"></iframe>');
   }
+  // ============================================================
+  // W21 · 파트너 호출 (브리지) — 대시보드에서 시킨 일이 실행된다
+  // ------------------------------------------------------------
+  // 읽기 전용 계약은 유지된다: 대시보드가 파일을 쓰는 게 아니라 **에이전트에게 요청만** 보낸다.
+  // 작성자는 여전히 에이전트 하나(STATE_CONTRACT 단일 작성자).
+  // 브리지가 없으면(file:// 더블클릭) 같은 문장을 복사해 텔레그램에 붙일 수 있게 폴백한다.
+  // ============================================================
+  var BRIDGE = (function () {
+    try { return window.__DASH_BRIDGE__ || null; } catch (e) { return null; }
+  })();
+  function partnerReady() { return !!(BRIDGE && BRIDGE.token && BRIDGE.claude); }
+
+  var runnerEl, runnerBody, runnerTitle, runnerFoot, runnerPromptEl, runnerReply, runnerInput;
+  var runnerAbort = null, runnerSession = null;
+  function runnerInit() {
+    runnerEl = document.getElementById("runner");
+    runnerBody = document.getElementById("runner-body");
+    runnerTitle = document.getElementById("runner-title");
+    runnerFoot = document.getElementById("runner-foot");
+    runnerPromptEl = document.getElementById("runner-prompt");
+    runnerReply = document.getElementById("runner-reply");
+    runnerInput = document.getElementById("runner-input");
+  }
+  function runnerOpen(title, prompt) {
+    if (!runnerEl) runnerInit();
+    runnerEl.removeAttribute("hidden");
+    runnerEl.className = "runner busy";
+    runnerTitle.textContent = title;
+    runnerPromptEl.textContent = prompt;
+    runnerBody.textContent = "";
+    runnerFoot.innerHTML = "";
+    if (runnerReply) runnerReply.setAttribute("hidden", "");
+  }
+  function runnerClose() {
+    if (runnerAbort) { try { runnerAbort.abort(); } catch (e) {} runnerAbort = null; }
+    if (runnerEl) runnerEl.setAttribute("hidden", "");
+  }
+  function runnerWrite(txt) {
+    if (!runnerBody) return;
+    var atBottom = runnerBody.scrollTop + runnerBody.clientHeight >= runnerBody.scrollHeight - 24;
+    runnerBody.textContent += txt;
+    if (atBottom) runnerBody.scrollTop = runnerBody.scrollHeight;
+  }
+  function runnerFinish(state, changed) {
+    if (!runnerEl) return;
+    runnerEl.className = "runner " + state;
+    runnerAbort = null;
+    // 파트너가 되물었을 수 있다 — 대화를 이어갈 수 있게 입력을 연다(세션이 있을 때만)
+    if (runnerReply && runnerSession && state === "done") {
+      runnerReply.removeAttribute("hidden");
+      try { runnerInput.focus(); } catch (e) {}
+    }
+    var html = '<button class="g-btn g-btn--secondary g-btn--sm" type="button" data-runner-close>닫기</button>';
+    // 파트너가 상태를 바꿨을 수 있다 — 화면을 새로 읽는 길을 준다(서버 모드는 폴링이 알아서 잡지만
+    // 기다리지 않고 바로 보고 싶을 때가 있다).
+    if (changed !== false) {
+      html += '<button class="g-btn g-btn--soft g-btn--sm" type="button" data-runner-refresh>화면 갱신</button>';
+    }
+    runnerFoot.innerHTML = html;
+  }
+
+  // 파트너에게 일을 시킨다. title = 사람이 읽는 제목, prompt = 실제로 보내는 말(항상 열어볼 수 있음).
+  function askPartner(title, prompt) {
+    if (!partnerReady()) { fallbackCopy(title, prompt); return; }
+    runnerSession = null;
+    runnerOpen(title, prompt);
+    sendToPartner(prompt);
+  }
+  // 이어가기 — 같은 세션으로 답을 보낸다
+  function replyToPartner(text) {
+    if (!partnerReady() || !runnerSession) return;
+    if (runnerReply) runnerReply.setAttribute("hidden", "");
+    runnerEl.className = "runner busy";
+    runnerFoot.innerHTML = "";
+    runnerWrite("\n\n> " + text + "\n\n");
+    sendToPartner(text, runnerSession);
+  }
+  function sendToPartner(prompt, session) {
+    var ctrl = null;
+    try { ctrl = new AbortController(); runnerAbort = ctrl; } catch (e) {}
+    fetch("/api/ask", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Dashboard-Token": BRIDGE.token },
+      body: JSON.stringify({ prompt: prompt, session: session || "" }),
+      signal: ctrl ? ctrl.signal : undefined
+    }).then(function (res) {
+      try { runnerSession = res.headers.get("X-Session-Id") || runnerSession; } catch (e) {}
+      if (!res.ok) {
+        return res.json().then(function (j) { throw new Error(j.error || ("HTTP " + res.status)); },
+                               function () { throw new Error("HTTP " + res.status); });
+      }
+      if (!res.body || !res.body.getReader) {          // 스트리밍 미지원 브라우저 폴백
+        return res.text().then(function (t) { runnerWrite(t); runnerFinish("done"); });
+      }
+      var reader = res.body.getReader(), dec = new TextDecoder();
+      return (function pump() {
+        return reader.read().then(function (r) {
+          if (r.done) { runnerFinish("done"); return; }
+          runnerWrite(dec.decode(r.value, { stream: true }));
+          return pump();
+        });
+      })();
+    }).catch(function (e) {
+      if (e && e.name === "AbortError") return;
+      runnerWrite("\n[실패] " + (e && e.message ? e.message : e) + "\n");
+      runnerFinish("fail", false);
+    });
+  }
+
+  function runnerSend() {
+    if (!runnerInput) return;
+    var v = (runnerInput.value || "").trim();
+    if (!v) return;
+    runnerInput.value = "";
+    replyToPartner(v);
+  }
+
+  // 브리지가 없을 때(file:// 더블클릭) — 같은 말을 복사해 텔레그램에 붙이면 결과는 같다.
+  function fallbackCopy(title, prompt) {
+    if (!runnerEl) runnerInit();
+    runnerEl.removeAttribute("hidden");
+    runnerEl.className = "runner";
+    runnerTitle.textContent = title;
+    runnerPromptEl.textContent = prompt;
+    runnerBody.textContent =
+      "이 화면은 파일을 더블클릭해서 연 상태라 파트너를 직접 부를 수 없어요.\n\n" +
+      "아래 ‘문장 복사’ 를 눌러 텔레그램에 그대로 붙여넣으면 똑같이 처리됩니다.\n" +
+      "터미널에서 ./dashboard.sh 로 열면 여기서 바로 실행할 수 있어요.";
+    runnerFoot.innerHTML =
+      '<button class="g-btn g-btn--soft g-btn--sm" type="button" data-copy="' + esc(prompt) + '">문장 복사</button>' +
+      '<button class="g-btn g-btn--secondary g-btn--sm" type="button" data-runner-close>닫기</button>';
+  }
+
+  // 행동 버튼 한 줄 만들기 — 브리지가 없으면 라벨을 정직하게 바꾼다(없는 기능을 약속하지 않는다).
+  function partnerActions(label, items) {
+    if (!items.length) return "";
+    var btns = items.map(function (it) {
+      return '<button class="pbtn" type="button" data-ask="' + esc(it.id) + '" data-ask-arg="' + esc(it.arg || "") + '">' +
+        '<span class="ic" aria-hidden="true">' + (it.ic || "◆") + '</span>' + esc(it.label) + '</button>';
+    }).join("");
+    var note = partnerReady() ? ""
+      : '<div class="partner-off">지금은 문장 복사만 돼요 — <code>./dashboard.sh</code> 로 열면 여기서 바로 실행됩니다.</div>';
+    return '<div class="acts-partner">' + (label ? '<span class="lbl">' + esc(label) + '</span>' : '') + btns + '</div>' + note;
+  }
+
+  // ── 행동 사전 ──────────────────────────────────────────────
+  // 화면의 버튼 하나 = 여기 한 줄. 프롬프트를 한곳에 모아 두는 이유:
+  //   ① 무엇이 나가는지 검토·수정이 쉽다 ② 스킬 명세와 짝이 맞는지 대조하기 쉽다(정직 규율).
+  // 각 항목의 skill 은 "이 행동이 기대는 제품 기능" — 명세에 없는 기능을 버튼으로 약속하지 않는다.
+  var ASKS = {
+    "todo.draft": {
+      skill: "draft-writer",
+      title: function (t) { return "답장 초안 — " + t.title; },
+      prompt: function (t) {
+        return "대시보드에서 요청합니다.\n\n" +
+          "아래 할 일에 대한 답장/대응 초안을 내 말투로 잡아줘.\n" +
+          "- 제목: " + t.title + "\n" +
+          (t.source ? "- 원본 기록: " + t.source + "\n" : "") +
+          (t.due ? "- 기한: " + t.due + "\n" : "") +
+          "\n원본 기록을 먼저 읽고, 맥락에 맞는 초안을 제안해줘. 확정은 내가 한다.";
+      }
+    },
+    "todo.done": {
+      skill: "reminder · issue-tracker",
+      title: function (t) { return "완료 처리 — " + t.title; },
+      prompt: function (t) {
+        return "대시보드에서 요청합니다.\n\n" +
+          "아래 할 일을 완료 처리해줘.\n" +
+          "- 제목: " + t.title + "\n" +
+          (t.source ? "- 원본 기록: " + t.source + "\n" : "") +
+          "\nstate/status.json 의 해당 항목 state 를 done 으로 바꾸고, " +
+          "today.activities 에 한 줄 남긴 뒤 ./refresh-dashboard.sh 를 실행해줘. " +
+          "해당 항목을 못 찾으면 바꾸지 말고 무엇을 못 찾았는지 알려줘.";
+      }
+    },
+    "todo.defer": {
+      skill: "reminder",
+      title: function (t) { return "기한 미루기 — " + t.title; },
+      prompt: function (t) {
+        return "대시보드에서 요청합니다.\n\n" +
+          "아래 할 일의 기한을 하루 뒤로 미뤄줘.\n" +
+          "- 제목: " + t.title + "\n" +
+          (t.due ? "- 지금 기한: " + t.due + "\n" : "") +
+          "\nstate/status.json 의 due 를 하루 뒤로 바꾸고 ./refresh-dashboard.sh 를 실행해줘. " +
+          "미루는 게 부적절해 보이면 그 이유를 먼저 말해줘.";
+      }
+    },
+    "todo.context": {
+      skill: "recall",
+      title: function (t) { return "지난 맥락 찾기 — " + t.title; },
+      prompt: function (t) {
+        return "대시보드에서 요청합니다.\n\n" +
+          "‘" + t.title + "’ 와 관련된 지난 기록을 notes/ 에서 찾아 요약해줘.\n" +
+          (t.source ? "- 이 건의 원본: " + t.source + "\n" : "") +
+          "\n비슷한 일이 전에 있었는지, 그때 어떻게 처리했는지 중심으로. 없으면 없다고 말해줘.";
+      }
+    }
+  };
+
+  function askIdRun(id, arg) {
+    var spec = ASKS[id];
+    if (!spec) return;
+    var ctx = null;
+    if (id.indexOf("todo.") === 0) {
+      var t = todos[+arg];
+      if (!t) { toast("그 항목을 찾지 못했어요"); return; }
+      ctx = t;
+    }
+    if (!ctx) return;
+    askPartner(spec.title(ctx), spec.prompt(ctx));
+  }
+
   // 내부 링크 열기 — 기록 탭 리딩 페인으로 보낸다(모달이 아니라 위키처럼 그 자리에서 이어 읽기).
   // 모달(뷰어·티켓) 안에서 눌렀으면 모달을 닫고 기록 탭으로 넘긴다.
   function openInternal(path) {
@@ -3637,6 +3967,12 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
     // 본문 안의 내부 경로 링크 → 기록 탭 리딩 페인으로 (위키 문법. '파일로 이동' 을 대체한다)
     var inl = target.closest("[data-inlink]");
     if (inl) { openInternal(inl.getAttribute("data-inlink") || ""); return; }
+    // 파트너에게 시키기 / 러너 제어
+    var ask = target.closest("[data-ask]");
+    if (ask) { askIdRun(ask.getAttribute("data-ask"), ask.getAttribute("data-ask-arg")); return; }
+    if (target.closest("[data-runner-close]")) { runnerClose(); return; }
+    if (target.closest("[data-runner-refresh]")) { runnerClose(); location.reload(); return; }
+    if (target.closest("[data-runner-send]")) { runnerSend(); return; }
     // ── 필터 칩 (할 일·칸반) — 목록만 부분 교체 ──
     var fc = target.closest("[data-tf]");
     if (fc) {
@@ -3774,6 +4110,14 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
     showTip(el, r.left + r.width / 2, r.top);
   });
   document.addEventListener("focusout", hideTip);
+  // 러너 답하기 입력에서 Enter = 보내기 (전역 단축키가 가로채기 전에 처리)
+  document.addEventListener("keydown", function (e) {
+    if (e.key !== "Enter" || !e.target || e.target.id !== "runner-input") return;
+    e.preventDefault();
+    e.stopPropagation();
+    runnerSend();
+  }, true);
+
   // 표 머리글은 th(role=button) — 키보드로도 정렬되게 Enter/Space 를 받는다
   document.addEventListener("keydown", function (e) {
     if (e.key !== "Enter" && e.key !== " ") return;
@@ -3800,10 +4144,11 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
       if (cmdkOpened()) cmdkClose(); else cmdkOpen();
       return;
     }
-    // Escape 는 나중에 열린 것부터: 팔레트 → 모달
+    // Escape 는 나중에 열린 것부터: 팔레트 → 모달 → 러너
     if (e.key === "Escape") {
       if (cmdkOpened()) { e.preventDefault(); cmdkClose(); return; }
       if (modalOpen()) { e.preventDefault(); closeModal(); return; }
+      if (runnerEl && !runnerEl.hasAttribute("hidden")) { e.preventDefault(); runnerClose(); return; }
       return;
     }
     if (cmdkOpened()) return;              // 팔레트가 열려 있으면 나머지 단축키는 팔레트 몫

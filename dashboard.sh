@@ -47,13 +47,20 @@ PY
 done
 
 URL="http://127.0.0.1:$PORT/dashboard/index.html"
-echo ""
-echo "  대시보드가 열렸어요 →  $URL"
-echo "  이 창을 닫거나 Ctrl+C 를 누르면 서버가 멈춥니다. (이 컴퓨터에서만 열립니다)"
-echo ""
 
 # 브라우저 열기 — 서버가 뜨는 사이에 여는 게 자연스러워 살짝 늦춘다
 ( sleep 1; command -v open > /dev/null 2>&1 && open "$URL" ) &
 
+# 브리지 서버: 정적 서빙 + '파트너에게 시키기'(claude -p) 호출 엔드포인트.
+# 127.0.0.1 바인딩 · Host/Origin 검증 · 세션 토큰 · 셸 미경유 — 자세한 이유는 파일 상단 주석 참고.
+if [ -f "$ROOT/dashboard-server.py" ]; then
+  exec python3 "$ROOT/dashboard-server.py" "$PORT"
+fi
+
+# 폴백: 브리지 파일이 없으면 예전처럼 정적 서버만 (대시보드는 파일 모드로 동작).
+echo ""
+echo "  대시보드가 열렸어요 →  $URL"
+echo "  이 창을 닫거나 Ctrl+C 를 누르면 서버가 멈춥니다. (이 컴퓨터에서만 열립니다)"
+echo ""
 # --bind 127.0.0.1 필수 — 기본값(0.0.0.0)이면 같은 네트워크의 다른 기기에서도 열린다.
 exec python3 -m http.server "$PORT" --bind 127.0.0.1
