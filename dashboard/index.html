@@ -1018,6 +1018,14 @@
     border-top: 1px solid var(--g-border);
   }
 
+  /* 인용구 — 산출물 헤더가 전부 인용구다. 왼쪽 띠로 본문과 구분한다 */
+  .md-q {
+    margin: var(--g-space-4) 0; padding: var(--g-space-2) 0 var(--g-space-2) var(--g-space-5);
+    border-left: 3px solid var(--g-border-strong); color: var(--g-fg-muted);
+  }
+  .md-q .md-p { margin: var(--g-space-1) 0; }
+  .md-hr { border: 0; border-top: 1px solid var(--g-border); margin: var(--g-space-6) 0; }
+
   /* ── 위키 내부 링크 (본문 안 경로 → 눌러 열기) ──────────
      옵시디언·노션의 그 감각: 문서를 읽다가 언급된 문서로 그대로 건너뛴다.
      밑줄이 아니라 은은한 배경 + 브랜드 잉크 — 본문 흐름을 끊지 않으면서 눌러진다는 게 보이게. */
@@ -1622,10 +1630,49 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
         out.push('<table class="md-table"><thead><tr>' + head.map(function (c) { return "<th>" + inl(c) + "</th>"; }).join("") + "</tr></thead><tbody>" +
           rows.map(function (r) { return "<tr>" + r.map(function (c) { return "<td>" + inl(c) + "</td>"; }).join("") + "</tr>"; }).join("") + "</tbody></table>"); continue;
       }
-      if (/^\s*[-*]\s+/.test(ln)) { var ui = []; while (i < lines.length && /^\s*[-*]\s+/.test(lines[i])) { ui.push("<li>" + inl(lines[i].replace(/^\s*[-*]\s+/, "")) + "</li>"); i++; } out.push('<ul class="md-ul">' + ui.join("") + "</ul>"); continue; }
-      if (/^\s*\d+\.\s+/.test(ln)) { var oi = []; while (i < lines.length && /^\s*\d+\.\s+/.test(lines[i])) { oi.push("<li>" + inl(lines[i].replace(/^\s*\d+\.\s+/, "")) + "</li>"); i++; } out.push('<ol class="md-ol">' + oi.join("") + "</ol>"); continue; }
+      // 인용구 — 산출물 헤더(> 작성:/> 입력:)가 전부 인용구다. 처리하지 않으면 '>' 가 본문에 노출된다.
+      if (/^\s*>\s?/.test(ln)) {
+        // 인용구 안의 줄도 빈 줄 전까지 이어 붙인다 — 안 그러면 줄을 넘어가는 **굵게** 가 깨진다
+        var qb = [], cur = [];
+        while (i < lines.length && /^\s*>\s?/.test(lines[i])) {
+          var qline = lines[i].replace(/^\s*>\s?/, "");
+          if (!qline.trim()) { if (cur.length) { qb.push(cur.join(" ")); cur = []; } }
+          else cur.push(qline);
+          i++;
+        }
+        if (cur.length) qb.push(cur.join(" "));
+        out.push('<blockquote class="md-q">' + qb.map(function (q) { return '<p class="md-p">' + inl(q) + "</p>"; }).join("") + "</blockquote>");
+        continue;
+      }
+      if (/^\s*---+\s*$/.test(ln)) { out.push('<hr class="md-hr">'); i++; continue; }
+      // 목록: 다음 표식/빈 줄 전까지의 줄은 그 항목의 이어지는 문장이다(원본이 하드랩돼 있다)
+      var LIST_STOP = /^(#{1,6}\s|\s*[-*]\s+|\s*\d+\.\s+|\s*>|```|\s*\||\s*---+\s*$)/;
+      if (/^\s*[-*]\s+/.test(ln)) {
+        var ui = [];
+        while (i < lines.length && /^\s*[-*]\s+/.test(lines[i])) {
+          var item = [lines[i].replace(/^\s*[-*]\s+/, "")]; i++;
+          while (i < lines.length && lines[i].trim() && !LIST_STOP.test(lines[i])) { item.push(lines[i].trim()); i++; }
+          ui.push("<li>" + inl(item.join(" ")) + "</li>");
+        }
+        out.push('<ul class="md-ul">' + ui.join("") + "</ul>"); continue;
+      }
+      if (/^\s*\d+\.\s+/.test(ln)) {
+        var oi = [];
+        while (i < lines.length && /^\s*\d+\.\s+/.test(lines[i])) {
+          var oitem = [lines[i].replace(/^\s*\d+\.\s+/, "")]; i++;
+          while (i < lines.length && lines[i].trim() && !LIST_STOP.test(lines[i])) { oitem.push(lines[i].trim()); i++; }
+          oi.push("<li>" + inl(oitem.join(" ")) + "</li>");
+        }
+        out.push('<ol class="md-ol">' + oi.join("") + "</ol>"); continue;
+      }
       if (/^\s*$/.test(ln)) { i++; continue; }
-      out.push('<p class="md-p">' + inl(ln) + "</p>"); i++;
+      // 문단은 빈 줄까지 이어 붙인다 — 한 줄씩 <p> 로 끊으면 줄을 넘어가는 **굵게** 가 깨져
+      // 별표가 본문에 그대로 노출된다(실측: "**A클라이언트의 / 브랜드**").
+      var pb = [ln]; i++;
+      while (i < lines.length && !/^\s*$/.test(lines[i]) && !/^(#{1,6}\s|\s*[-*]\s+|\s*\d+\.\s+|\s*>|```|\s*\|)/.test(lines[i])) {
+        pb.push(lines[i]); i++;
+      }
+      out.push('<p class="md-p">' + inl(pb.join(" ")) + "</p>");
     }
     return out.join("");
   }
@@ -3437,6 +3484,29 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
       }
       // 백링크 — 이 기록을 참조하는 할 일·프로젝트 + 같은 폴더의 형제 산출물.
       // 역방향 링크는 폴더 구조로 표현할 수 없다 → 이 화면이 파일 탐색기를 이기는 지점.
+      // 나가는 링크 — 백링크의 반대편. 이게 없으면 위키가 반쪽이다(들어오는 것만 보이고 나가는 건 안 보임).
+      var outLinks = (function () {
+        var e2 = contentByPath[curFile];
+        if (!e2 || !e2.content) return [];
+        var seen = {}, res = [], base = dirOf(curFile);
+        (String(e2.content).match(INLINK_RE) || []).forEach(function (tok) {
+          var hit = resolveInternal(tok, base);
+          if (!hit || hit === curFile || seen[hit]) return;
+          seen[hit] = 1;
+          res.push(hit);
+        });
+        return res;
+      })();
+      var outHTML = outLinks.length
+        ? '<div class="xlink-h">이 기록이 가리키는 곳 · ' + outLinks.length + '건</div><div class="xlinks">' +
+          outLinks.map(function (p2) {
+            var ti = (contentByPath[p2] && contentByPath[p2].title) || basename(p2);
+            var sl = recSrcLabel(recFolderKeyOf(p2));
+            return '<button class="xlink" type="button" data-inlink="' + esc(p2) + '">' +
+              '<span class="ic" aria-hidden="true">↗</span><span class="tx">' + esc(ti) + (sl ? ' · ' + esc(sl) : '') + '</span></button>';
+          }).join("") + '</div>'
+        : "";
+
       var bl = backlinksOf(curFile), sib = siblingsOf(curFile);
       var blHTML = "";
       if (bl.length || sib.length) {
@@ -3465,7 +3535,7 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
         '</span></div>' +
         (q ? '<div class="rec-hitline" id="rec-hitline"></div>' : '') +
         '<div class="rec-read-body' + (tocHTML ? " has-toc" : "") + '"><div id="rec-read-main" style="min-width:0">' + body + '</div>' + tocHTML + '</div>' +
-        blHTML + '</section>';
+        outHTML + blHTML + '</section>';
     } else {
       read = '<section class="card rec-read"><div class="empty"><span class="em">📄</span>왼쪽에서 파일을 고르면 여기에 내용이 바로 보여요.</div></section>';
     }
