@@ -18,6 +18,7 @@
   · --dangerously-skip-permissions 미사용 → .claude/settings.json 의 권한 선언을 그대로 따른다
                                      (Edit(../**) 거부 = 이 폴더 밖은 못 고침)
 """
+import datetime
 import http.server
 import json
 import os
@@ -150,6 +151,271 @@ def list_sessions():
     return out
 
 
+# ============================================================
+# 자동화 (W22-C) — 정해진 때에 파트너가 스스로 일한다
+# ------------------------------------------------------------
+# 왜 이게 필요한가: reminder 스킬이 스스로 적어 둔 한계다 —
+#   "정해진 시각에 자동으로 알림을 울리는 상시 스케줄러는 이 버전에 없다.
+#    (상시 구동 자동 알림은 다음 단계 로드맵.)"
+# 즉 지어낸 기능이 아니라 제품이 이미 약속한 항목이다.
+#
+# 안전장치(대표 지시: 자율은 기본 꺼짐):
+#   · 출고 시 전부 꺼짐  · 동시 1건  · 하루 실행 상한  · 연속 실패 3회면 자동 정지
+#   · 한 일은 전부 활동 내역에 남는다(요청형/자율형 구분)
+# ============================================================
+AUTOMATIONS_PATH = os.path.join(ROOT, "state", "automations.json")
+ACTIVITY_PATH = os.path.join(ROOT, "state", "activity.json")
+_state_lock = threading.Lock()
+
+# 출고 템플릿 — 전부 **실주행 유즈케이스**에서 뽑았다(창작 금지 규율).
+DEFAULT_AUTOMATIONS = [
+    {
+        "id": "reminder-due",
+        "name": "정시 알림",
+        "why": "reminder 스킬이 적어 둔 한계 — 상시 스케줄러가 없어 기한을 놓친다",
+        "skill": "reminder",
+        "trigger": {"kind": "daily", "at": "09:00"},
+        "prompt": ("오늘이 기한이거나 기한이 지난 리마인더·이슈가 있는지 state/status.json 의 todos 에서 확인해줘.\n"
+                   "있으면 무엇을 언제까지 해야 하는지 짧게 알려주고, 관련 원본 기록이 있으면 함께 짚어줘.\n"
+                   "없으면 '오늘 기한은 없어요' 한 줄이면 충분해."),
+        "deliver": "notify",
+    },
+    {
+        "id": "morning-brief",
+        "name": "아침 브리핑",
+        "why": "페르소나 3종 실주행에서 모두 UC-1 로 등장 · 평가 최고 가치",
+        "skill": "daily-briefing",
+        "trigger": {"kind": "daily", "at": "08:00"},
+        "prompt": ("오늘 아침 브리핑을 만들어줘. 일정(캘린더 또는 notes/calendar-fallback.md)과\n"
+                   "오늘 챙길 할 일을 엮어서 짧게 정리해줘. 미팅이 있으면 그 상대와 관련된 지난 기록도 한 줄로 붙여줘."),
+        "deliver": "both",
+    },
+    {
+        "id": "open-issues",
+        "name": "미해결 이슈 점검",
+        "why": "P-B UC-1 실주행에서 이미 열려 있던 반품 이슈가 브리핑에 안 섞여 놓쳤다",
+        "skill": "issue-tracker",
+        "trigger": {"kind": "daily", "at": "18:00"},
+        "prompt": ("notes/issues/ 의 이슈 중 아직 닫히지 않은 것을 훑어줘.\n"
+                   "각각 마지막으로 움직인 게 언제인지, 지금 무엇이 막고 있는지 한 줄씩 정리해줘.\n"
+                   "오래 멈춰 있는 게 있으면 그걸 먼저 짚어줘. 없으면 없다고 말해줘."),
+        "deliver": "notify",
+    },
+    {
+        "id": "weekly-wrap",
+        "name": "이번 주 마감 정리",
+        "why": "P-C UC-1 — '벽 화이트보드 안 봐도 이번 주가 한 문장' (평가 최고 가치)",
+        "skill": "daily-briefing · recall",
+        "trigger": {"kind": "weekly", "day": 1, "at": "09:00"},   # 1=월요일
+        "prompt": ("이번 주에 마감이 걸린 일들을 한자리에 모아줘.\n"
+                   "기한 순으로 정리하고, 각각 관련된 지난 기록·미해결 이슈가 있으면 함께 엮어줘.\n"
+                   "마지막에 '이번 주는 한 문장으로 무엇인지' 를 한 줄로 요약해줘."),
+        "deliver": "both",
+    },
+]
+WEEKDAY_KO = ["월", "화", "수", "목", "금", "토", "일"]
+
+
+def _read_json(path, fallback):
+    try:
+        with open(path, encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return fallback
+
+
+def _write_json(path, obj):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(obj, f, ensure_ascii=False, indent=2)
+    os.replace(tmp, path)
+
+
+def load_automations():
+    """정의를 읽고, 출고 템플릿 중 빠진 것은 **꺼진 상태로** 채워 넣는다."""
+    data = _read_json(AUTOMATIONS_PATH, {"schemaVersion": 1, "items": []})
+    items = data.get("items")
+    if not isinstance(items, list):
+        items = []
+    have = {i.get("id") for i in items if isinstance(i, dict)}
+    for tpl in DEFAULT_AUTOMATIONS:
+        if tpl["id"] in have:
+            continue
+        it = dict(tpl)
+        it["enabled"] = False          # 대표 지시: 자율은 기본 꺼짐
+        it["lastRun"] = None
+        it["failStreak"] = 0
+        it["runsToday"] = 0
+        it["runsDate"] = None
+        items.append(it)
+    data["items"] = items
+    data["schemaVersion"] = 1
+    return data
+
+
+def save_automations(data):
+    data["updatedAt"] = datetime.datetime.now().astimezone().isoformat(timespec="seconds")
+    _write_json(AUTOMATIONS_PATH, data)
+
+
+def log_activity(entry):
+    """파트너가 한 일을 남긴다. 요청형/자율형을 구분해 적는다(대표 지시 E4)."""
+    with _state_lock:
+        data = _read_json(ACTIVITY_PATH, {"schemaVersion": 1, "items": []})
+        items = data.get("items")
+        if not isinstance(items, list):
+            items = []
+        entry = dict(entry)
+        entry.setdefault("at", datetime.datetime.now().astimezone().isoformat(timespec="seconds"))
+        items.append(entry)
+        data["items"] = items[-300:]          # 최근 300건만 보관
+        data["schemaVersion"] = 1
+        data["updatedAt"] = entry["at"]
+        _write_json(ACTIVITY_PATH, data)
+
+
+def activity_view():
+    """내역을 주면서, 아직 'started' 인 항목의 결말을 세션 상태로 메꾼다.
+
+    서버가 작업 완료를 따로 감시하지 않으므로, 조회 시점에 맞춰 본다(값을 지어내지 않는다).
+    """
+    data = _read_json(ACTIVITY_PATH, {"items": []})
+    items = list(data.get("items") or [])
+    by_job = {}
+    for s in list_sessions():
+        if s.get("id"):
+            by_job[s["id"]] = s
+    for it in items:
+        if it.get("state") != "started" or not it.get("jobId"):
+            continue
+        s = by_job.get(it["jobId"])
+        if not s:
+            continue
+        st = s.get("state")
+        if st in ("done", "blocked", "failed"):
+            it["state"] = st
+            if s.get("answer") and not it.get("summary"):
+                it["summary"] = s["answer"][:160]
+    return items[-80:][::-1]
+
+
+def _next_due(trigger, after):
+    """다음 실행 시각. 과거로 밀린 것을 몰아서 터뜨리지 않고 **앞으로**만 계산한다."""
+    try:
+        hh, mm = [int(x) for x in str(trigger.get("at") or "09:00").split(":")[:2]]
+    except Exception:
+        hh, mm = 9, 0
+    kind = trigger.get("kind")
+    base = after.replace(hour=hh, minute=mm, second=0, microsecond=0)
+    if kind == "weekly":
+        want = int(trigger.get("day", 1))                 # 1=월 … 7=일
+        want_idx = (want - 1) % 7
+        delta = (want_idx - base.weekday()) % 7
+        cand = base + datetime.timedelta(days=delta)
+        if cand <= after:
+            cand += datetime.timedelta(days=7)
+        return cand
+    cand = base
+    if cand <= after:
+        cand += datetime.timedelta(days=1)
+    return cand
+
+
+def automations_view():
+    """화면에 줄 형태 — 다음 실행 시각을 계산해 붙인다."""
+    data = load_automations()
+    now = datetime.datetime.now().astimezone()
+    out = []
+    for it in data["items"]:
+        v = dict(it)
+        v["nextRun"] = _next_due(it.get("trigger") or {}, now).isoformat(timespec="minutes") if it.get("enabled") else None
+        out.append(v)
+    return out
+
+
+_sched_stop = threading.Event()
+
+
+def _scheduler_loop():
+    """30초마다 깨어나 실행할 자동화가 있는지 본다.
+
+    서버가 꺼져 있던 동안의 시각은 **건너뛴다** — 노트북을 열자마자 밀린 알림이
+    한꺼번에 쏟아지는 게 더 나쁘다(정직·놀람 방지).
+    """
+    marks = {}          # id → 마지막으로 지나간 예정 시각
+    while not _sched_stop.wait(30):
+        try:
+            now = datetime.datetime.now().astimezone()
+            data = load_automations()
+            changed = False
+            for it in data["items"]:
+                if not it.get("enabled"):
+                    continue
+                if it.get("failStreak", 0) >= 3:
+                    continue                        # 연속 실패 → 자동 정지
+                today = now.date().isoformat()
+                if it.get("runsDate") != today:
+                    it["runsDate"] = today
+                    it["runsToday"] = 0
+                    changed = True
+                if it.get("runsToday", 0) >= int(it.get("dailyLimit", 3)):
+                    continue
+                due = _next_due(it.get("trigger") or {}, now - datetime.timedelta(days=8))
+                # due 는 now 이후의 첫 예정. 직전 예정은 한 주기 앞.
+                step = datetime.timedelta(days=7) if (it.get("trigger") or {}).get("kind") == "weekly" else datetime.timedelta(days=1)
+                prev = due - step
+                key = prev.isoformat()
+                if marks.get(it["id"]) == key:
+                    continue
+                if not (0 <= (now - prev).total_seconds() <= 600):
+                    marks.setdefault(it["id"], key)     # 창을 벗어난 건 조용히 지나간 것으로 표시
+                    continue
+                marks[it["id"]] = key
+                # 순차 실행 — 이미 도는 백그라운드 작업이 있으면 이번 회차는 거른다
+                busy = any(s.get("kind") == "background" and s.get("state") == "working"
+                           for s in list_sessions())
+                if busy:
+                    log_activity({"kind": "auto", "title": it.get("name"), "why": it.get("name"),
+                                  "state": "skipped", "summary": "다른 작업이 진행 중이라 이번 회차는 건너뛰었어요"})
+                    continue
+                _run_automation(it)
+                it["runsToday"] = it.get("runsToday", 0) + 1
+                changed = True
+            if changed:
+                save_automations(data)
+        except Exception as e:
+            sys.stderr.write("  [자동화] 스케줄러 오류: %s\n" % e)
+
+
+def _run_automation(it):
+    """자동화 1건 실행 — 백그라운드로 보내고 활동 내역에 남긴다."""
+    prompt = ("자동화 실행입니다 (대표가 미리 켜 둔 '%s').\n\n%s\n\n"
+              "결과 처리: %s") % (
+        it.get("name"), it.get("prompt") or "",
+        {"note": "결과를 notes/inbox/ 에 기록으로 남겨줘.",
+         "notify": "결과를 짧게 알려주기만 하고 파일은 만들지 마.",
+         "both": "결과를 짧게 알려주고 notes/inbox/ 에도 기록으로 남겨줘."}.get(it.get("deliver"), "결과를 짧게 알려줘."))
+    try:
+        p = subprocess.run(["claude", "--bg", prompt], cwd=ROOT,
+                           capture_output=True, text=True, timeout=60)
+        m = re.search(r"backgrounded\s*[·|]?\s*(?:\x1b\[[0-9;]*m)?([0-9a-f]{6,})", p.stdout or "")
+        job = m.group(1) if m else None
+        _sessions_cache["data"] = None
+        it["failStreak"] = 0
+        it["lastRun"] = {"at": datetime.datetime.now().astimezone().isoformat(timespec="seconds"),
+                         "ok": bool(job), "jobId": job}
+        log_activity({"kind": "auto", "title": it.get("name"), "why": it.get("name"),
+                      "state": "started" if job else "failed", "jobId": job,
+                      "summary": "" if job else (p.stdout or p.stderr or "")[:200]})
+    except Exception as e:
+        it["failStreak"] = it.get("failStreak", 0) + 1
+        it["lastRun"] = {"at": datetime.datetime.now().astimezone().isoformat(timespec="seconds"),
+                         "ok": False, "error": str(e)[:200]}
+        log_activity({"kind": "auto", "title": it.get("name"), "why": it.get("name"),
+                      "state": "failed", "summary": str(e)[:200]})
+
+
 class Handler(http.server.SimpleHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
 
@@ -186,6 +452,16 @@ class Handler(http.server.SimpleHTTPRequestHandler):
     # ── 정적: index.html 에 세션 토큰을 주입해 내려준다 ───────
     def do_GET(self):
         path = self.path.split("?", 1)[0]
+        if path == "/api/automations":
+            ok, why = self._origin_ok()
+            if not ok:
+                return self._json(403, {"error": why})
+            return self._json(200, {"items": automations_view()})
+        if path == "/api/activity":
+            ok, why = self._origin_ok()
+            if not ok:
+                return self._json(403, {"error": why})
+            return self._json(200, {"items": activity_view()})
         if path == "/api/sessions":
             ok, why = self._origin_ok()
             if not ok:
@@ -230,6 +506,10 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         route = self.path.split("?", 1)[0]
         if route == "/api/jobs":
             return self._dispatch_job()
+        if route == "/api/automations":
+            return self._save_automation()
+        if route == "/api/jobs/stop":
+            return self._stop_job()
         if route != "/api/ask":
             return self._json(404, {"error": "not found"})
 
@@ -266,6 +546,79 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         finally:
             _running.release()
 
+
+    # ── 자동화 켜기/끄기·수정 (W22-C) ─────────────────────────
+    # 자동화 설정은 **사업 상태가 아니라 사용자의 환경 설정**이므로 대시보드가 쓴다.
+    # status.json·team.json 은 여전히 에이전트만 쓴다(STATE_CONTRACT 경계).
+    def _save_automation(self):
+        ok, why = self._origin_ok()
+        if not ok:
+            return self._json(403, {"error": why})
+        if not self._token_ok():
+            return self._json(403, {"error": "세션 토큰이 없거나 틀립니다"})
+        try:
+            n = int(self.headers.get("Content-Length", "0"))
+            payload = json.loads(self.rfile.read(n).decode("utf-8") or "{}")
+        except Exception:
+            return self._json(400, {"error": "본문을 읽을 수 없습니다"})
+        aid = str(payload.get("id") or "")
+        if not aid:
+            return self._json(400, {"error": "id 가 필요합니다"})
+        with _state_lock:
+            data = load_automations()
+            target = None
+            for it in data["items"]:
+                if it.get("id") == aid:
+                    target = it
+                    break
+            if target is None:
+                return self._json(404, {"error": "그 자동화를 찾지 못했어요"})
+            if "enabled" in payload:
+                target["enabled"] = bool(payload["enabled"])
+                target["failStreak"] = 0          # 다시 켜면 실패 기록은 초기화
+            if isinstance(payload.get("prompt"), str) and payload["prompt"].strip():
+                target["prompt"] = payload["prompt"].strip()[:4000]
+            tr = payload.get("trigger")
+            if isinstance(tr, dict):
+                cur = target.get("trigger") or {}
+                if tr.get("kind") in ("daily", "weekly"):
+                    cur["kind"] = tr["kind"]
+                if re.fullmatch(r"[0-2]?\d:[0-5]\d", str(tr.get("at") or "")):
+                    cur["at"] = str(tr["at"])
+                if str(tr.get("day", "")).isdigit():
+                    cur["day"] = max(1, min(7, int(tr["day"])))
+                target["trigger"] = cur
+            if payload.get("deliver") in ("note", "notify", "both"):
+                target["deliver"] = payload["deliver"]
+            save_automations(data)
+        return self._json(200, {"ok": True, "items": automations_view()})
+
+    # ── 작업 그만두기 ────────────────────────────────────────
+    # blocked(답을 기다리는) 세션은 순차 큐를 영구히 막는다 — 화면에서 끊을 수 있어야 한다.
+    def _stop_job(self):
+        ok, why = self._origin_ok()
+        if not ok:
+            return self._json(403, {"error": why})
+        if not self._token_ok():
+            return self._json(403, {"error": "세션 토큰이 없거나 틀립니다"})
+        try:
+            n = int(self.headers.get("Content-Length", "0"))
+            payload = json.loads(self.rfile.read(n).decode("utf-8") or "{}")
+        except Exception:
+            return self._json(400, {"error": "본문을 읽을 수 없습니다"})
+        jid = str(payload.get("id") or "")
+        if not re.fullmatch(r"[0-9a-fA-F-]{4,40}", jid):
+            return self._json(400, {"error": "작업 id 가 올바르지 않습니다"})
+        try:
+            subprocess.run(["claude", "stop", jid], cwd=ROOT,
+                           capture_output=True, text=True, timeout=30)
+        except Exception as e:
+            return self._json(500, {"error": "그만두지 못했어요: %s" % e})
+        _sessions_cache["data"] = None
+        log_activity({"kind": "request", "title": "작업 그만두기 (%s)" % jid,
+                      "state": "done", "summary": "사용자가 화면에서 중단"})
+        return self._json(200, {"ok": True})
+
     # ── 백그라운드 작업 보내기 (W22) ─────────────────────────
     # `claude --bg` 는 즉시 반환한다. 세션 주인은 Claude Code 이지 브라우저가 아니므로
     # **화면을 닫아도 작업은 계속 산다.** 진행 상황은 /api/sessions 로 읽는다.
@@ -291,10 +644,19 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
         # 순차 실행(대표 결정): 이미 도는 백그라운드 작업이 있으면 새로 보내지 않는다.
         # 사용량이 예측 가능하고 같은 파일을 동시에 고쳐 충돌하는 일이 없다.
+        # **working 만 큐를 막는다.** blocked 는 "답하고 더 기다리는 중" 인 경우가 많아서
+        # (실측: 이미 정답을 낸 세션이 blocked 로 남아 있었다) 그것까지 막으면 사용자가 갇힌다.
         for s in list_sessions():
-            if s.get("kind") == "background" and s.get("state") in ("working", "blocked"):
+            if s.get("kind") == "background" and s.get("state") == "working":
+                hint = ""
+                if s.get("state") == "blocked" and not workspace_trusted():
+                    hint = ("이 폴더가 아직 Claude Code 신뢰 승인 전이라 권한 물음에서 멈춰 있어요. "
+                            "그만두기를 누르고, 이 폴더에서 claude 를 한 번 실행해 신뢰를 수락해 주세요.")
+                elif s.get("state") == "blocked":
+                    hint = "그 작업이 답을 기다리고 있어요. 답해 주거나 그만두기를 누르세요."
                 return self._json(429, {
                     "error": "이미 진행 중인 작업이 있어요",
+                    "hint": hint,
                     "running": {"id": s.get("id"), "name": s.get("name"), "state": s.get("state")},
                 })
         try:
@@ -309,8 +671,13 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         job_id = m.group(1) if m else None
         _sessions_cache["data"] = None          # 새 작업이 바로 목록에 뜨도록 캐시를 버린다
         if not job_id:
+            log_activity({"kind": "request", "title": prompt.split("\n")[0][:60],
+                          "state": "failed", "summary": (p.stdout or p.stderr or "")[:200]})
             return self._json(500, {"error": "작업 id 를 확인하지 못했어요",
                                     "raw": (p.stdout or p.stderr or "")[:300]})
+        # 요청형도 내역에 남긴다 — "파트너가 어떻게 움직이는지" 는 자율형만의 이야기가 아니다
+        log_activity({"kind": "request", "title": prompt.split("\n")[0][:60],
+                      "state": "started", "jobId": job_id})
         return self._json(200, {"id": job_id})
 
     def _stream_claude(self, prompt, session=""):
@@ -401,6 +768,8 @@ def main():
             print("  · 이 폴더가 아직 Claude Code 신뢰 승인 전이에요. 터미널에서 `claude` 를 한 번")
             print("    실행하고 신뢰 대화상자를 수락하면 파트너가 파일을 제대로 읽습니다.")
         print("")
+        t = threading.Thread(target=_scheduler_loop, daemon=True)
+        t.start()
         try:
             httpd.serve_forever()
         except KeyboardInterrupt:

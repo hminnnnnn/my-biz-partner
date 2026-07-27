@@ -1159,6 +1159,68 @@
   }
   .st-rev .st-sn { width: 100%; margin-top: var(--g-space-1); }
 
+  /* ── 자동화 탭 (W22-C) ───────────────────────────────────
+     "클릭이나 변화만 주면 잘 동작하게" — 기본 조작은 스위치 하나다. */
+  .auto-card {
+    display: grid; gap: var(--g-space-3);
+    background: var(--g-surface); border: 1px solid var(--g-border);
+    border-radius: var(--g-radius-card); padding: var(--g-space-5);
+  }
+  .auto-card + .auto-card { margin-top: var(--g-space-4); }
+  .auto-card.on { border-color: color-mix(in oklab, var(--g-brand) 40%, transparent); background: var(--g-brand-soft); }
+  .auto-top { display: flex; align-items: center; gap: var(--g-space-3); flex-wrap: wrap; }
+  .auto-name { font: var(--g-body-str); color: var(--g-fg); flex: 1; min-width: 0; }
+  .auto-when {
+    font: var(--g-micro); color: var(--g-fg-muted); background: var(--g-surface-sunken);
+    border-radius: var(--g-radius-1); padding: 2px var(--g-space-3); flex: none;
+  }
+  .auto-card.on .auto-when { background: var(--g-surface); color: var(--g-brand); font-weight: 600; }
+  .auto-why { font: var(--g-micro); color: var(--g-fg-subtle); }
+  .auto-why b { color: var(--g-fg-muted); font-weight: 600; }
+  .auto-meta { display: flex; flex-wrap: wrap; gap: var(--g-space-4); font: var(--g-micro); color: var(--g-fg-subtle); }
+  .auto-edit { display: flex; flex-wrap: wrap; gap: var(--g-space-3); align-items: center; }
+  .auto-edit label { font: var(--g-micro); color: var(--g-fg-subtle); }
+  .auto-edit select, .auto-edit input[type="time"] {
+    font: var(--g-caption); color: var(--g-fg); background: var(--g-surface-sunken);
+    border: 1px solid var(--g-border); border-radius: var(--g-radius-control);
+    padding: var(--g-space-2) var(--g-space-3);
+  }
+  .auto-prompt {
+    width: 100%; min-height: 74px; resize: vertical;
+    font: var(--g-caption); font-family: var(--g-font-mono); color: var(--g-fg);
+    background: var(--g-surface-sunken); border: 1px solid var(--g-border);
+    border-radius: var(--g-radius-control); padding: var(--g-space-3) var(--g-space-4);
+  }
+  .auto-prompt:focus-visible { border-color: var(--g-brand); box-shadow: var(--g-focus-ring); outline: none; }
+  /* 켜기 스위치 — 이 화면의 주 조작 */
+  .sw {
+    position: relative; width: 42px; height: 24px; flex: none; cursor: pointer;
+    background: var(--g-surface-sunken); border: 1px solid var(--g-border);
+    border-radius: 999px; padding: 0; transition: background-color var(--g-motion-state), border-color var(--g-motion-state);
+  }
+  .sw::after {
+    content: ""; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px;
+    border-radius: 50%; background: var(--g-fg-subtle);
+    transition: transform var(--g-motion-state), background-color var(--g-motion-state);
+  }
+  .sw[aria-checked="true"] { background: var(--g-brand); border-color: var(--g-brand); }
+  .sw[aria-checked="true"]::after { transform: translateX(18px); background: var(--g-brand-fg); }
+  .sw:focus-visible { outline: none; box-shadow: var(--g-focus-ring); }
+
+  /* 활동 내역 */
+  .act-row {
+    display: flex; align-items: baseline; gap: var(--g-space-3);
+    padding: var(--g-space-3) 0; border-top: 1px solid var(--g-border); font: var(--g-caption);
+  }
+  .act-row:first-child { border-top: 0; }
+  .act-at { font: var(--g-micro); color: var(--g-fg-subtle); flex: none; font-variant-numeric: var(--g-font-numeric); }
+  .act-t { color: var(--g-fg); flex: 1; min-width: 0; }
+  .act-why {
+    font: var(--g-micro); border-radius: var(--g-radius-1); padding: 1px var(--g-space-2); flex: none;
+  }
+  .act-why.auto { color: var(--g-brand); background: var(--g-brand-soft); font-weight: 700; }
+  .act-why.req { color: var(--g-fg-subtle); background: var(--g-surface-sunken); }
+
   /* ── 라이브 세션 (W22) — "지금 우리 회사가 돌아가는 중" ───
      화면을 닫아도 작업은 계속 산다. 이 카드는 그 사실을 눈으로 보여준다. */
   .live-wrap { display: flex; flex-direction: column; gap: var(--g-space-3); }
@@ -1409,7 +1471,9 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
     { id: "project", label: "프로젝트", ic: "◐" },
     { id: "team",    label: "팀",      ic: "◎" },
     { id: "kanban",  label: "칸반보드", ic: "☷" },
-    { id: "records", label: "기록",    ic: "▤" }
+    { id: "records", label: "기록",    ic: "▤" },
+    // 7번째 탭 (W22-C) — IA 변경은 대표 승인 사항이고, 승인받았다.
+    { id: "auto",    label: "자동화",  ic: "⟳" }
   ];
 
   function esc(s) {
@@ -1790,7 +1854,9 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
       project: String(projectList.length),
       team: staffList.length ? String(staffList.length) : "",
       kanban: String(km.waiting.length + km.doing.length + km.done.length),
-      records: String(Object.keys(records.counts || {}).reduce(function (a, k) { return a + (records.counts[k] || 0); }, 0))
+      records: String(Object.keys(records.counts || {}).reduce(function (a, k) { return a + (records.counts[k] || 0); }, 0)),
+      // 자동화는 **켜진 것**만 센다. 0이면 배지를 아예 안 보인다(꺼져 있는 게 정상 상태다).
+      auto: (function () { var n = automations.filter(function (x) { return x.enabled; }).length; return n ? String(n) : ""; })()
     };
     var st = ({ online: "online", working: "working", idle: "idle" })[agent.status] || "offline";
     var sub = !agent.identityLoaded ? "정체성 미입력"
@@ -3180,6 +3246,9 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
     if (s.answer && (state === "done" || state === "blocked")) {
       ans = '<div class="live-ans">' + esc(s.answer.length > 700 ? s.answer.slice(0, 700) + "…" : s.answer) + '</div>';
     }
+    var stopBtn = (state === "working" || state === "blocked")
+      ? '<button class="g-btn g-btn--secondary g-btn--sm" type="button" data-job-stop="' + esc(s.id) + '">그만두기</button>'
+      : "";
     return '<div class="live-card ' + state + '">' +
       '<span class="live-who">' + who + '</span>' +
       '<div class="live-main">' +
@@ -3188,6 +3257,7 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
           '<span class="live-state ' + state + '">' + esc(label) + '</span>' +
           '<span class="live-el">' + esc(elapsedText(s.startedAt)) + '</span>' +
         '</div>' + doing + ans +
+        (stopBtn ? '<div style="margin-top:var(--g-space-3)">' + stopBtn + '</div>' : '') +
       '</div></div>';
   }
 
@@ -3243,6 +3313,149 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
     if (!SERVER_MODE || liveTimer) return;
     fetchSessions();
     liveTimer = setInterval(fetchSessions, 5000);
+  }
+
+  // ============================================================
+  // W22-C · 자동화 탭 — 정해진 때에 파트너가 스스로 일한다
+  // ------------------------------------------------------------
+  // 출고 4종은 전부 **실주행 유즈케이스·스킬 명세**에서 뽑았다(창작 금지 규율).
+  // 전부 기본 꺼짐이고, 화면에 **왜 이 자동화가 있는지 근거**를 함께 적는다.
+  // ============================================================
+  var automations = [], activity = [];
+
+  function whenText(t) {
+    if (!t) return "";
+    var at = t.at || "09:00";
+    if (t.kind === "weekly") return "매주 " + (WD_MON[(t.day || 1) - 1] || "월") + "요일 " + at;
+    return "매일 " + at;
+  }
+  var WD_MON = ["월", "화", "수", "목", "금", "토", "일"];
+  var DELIVER_LABEL = { note: "기록으로 남김", notify: "알려주기만", both: "알려주고 기록도" };
+
+  function autoCardHTML(it) {
+    var on = !!it.enabled;
+    var last = it.lastRun;
+    var lastTxt = last
+      ? (relTime(last.at) + (last.ok === false ? " · 실패" : " · 실행됨"))
+      : "아직 실행된 적 없어요";
+    var stopped = (it.failStreak || 0) >= 3;
+    return '<div class="auto-card' + (on ? " on" : "") + '">' +
+      '<div class="auto-top">' +
+        '<span class="auto-name">' + esc(it.name) + '</span>' +
+        '<span class="auto-when">' + esc(whenText(it.trigger)) + '</span>' +
+        '<button class="sw" type="button" role="switch" aria-checked="' + (on ? "true" : "false") +
+          '" data-auto-toggle="' + esc(it.id) + '" aria-label="' + esc(it.name) + ' 켜기/끄기"></button>' +
+      '</div>' +
+      '<div class="auto-why"><b>왜 있나</b> · ' + esc(it.why || "") +
+        (it.skill ? ' <span style="color:var(--g-fg-subtle)">(' + esc(it.skill) + ')</span>' : '') + '</div>' +
+      (stopped ? '<div class="partner-off">연속 실패가 이어져 잠시 멈췄어요. 스위치를 다시 켜면 재개합니다.</div>' : '') +
+      '<div class="auto-meta"><span>마지막 · ' + esc(lastTxt) + '</span>' +
+        (on && it.nextRun ? '<span>다음 · ' + esc(String(it.nextRun).replace("T", " ").slice(0, 16)) + '</span>' : '') +
+        '<span>' + esc(DELIVER_LABEL[it.deliver] || "") + '</span></div>' +
+      // 편집 — 언제·결과·지시문. 조건 편집기 같은 건 두지 않는다(번잡함 경계).
+      '<details class="runner-ask" style="background:transparent;border:0">' +
+        '<summary>어떻게 동작하는지 보기 · 고치기</summary>' +
+        '<div style="padding:0 0 var(--g-space-3)">' +
+          '<div class="auto-edit">' +
+            '<label>언제</label>' +
+            '<select data-auto-kind="' + esc(it.id) + '">' +
+              '<option value="daily"' + (it.trigger.kind === "daily" ? " selected" : "") + '>매일</option>' +
+              '<option value="weekly"' + (it.trigger.kind === "weekly" ? " selected" : "") + '>매주</option>' +
+            '</select>' +
+            (it.trigger.kind === "weekly"
+              ? '<select data-auto-day="' + esc(it.id) + '">' + WD_MON.map(function (d, i) {
+                  return '<option value="' + (i + 1) + '"' + ((it.trigger.day || 1) === i + 1 ? " selected" : "") + '>' + d + '</option>';
+                }).join("") + '</select>' : '') +
+            '<input type="time" value="' + esc(it.trigger.at || "09:00") + '" data-auto-at="' + esc(it.id) + '">' +
+            '<label>결과</label>' +
+            '<select data-auto-deliver="' + esc(it.id) + '">' +
+              ["notify", "note", "both"].map(function (k) {
+                return '<option value="' + k + '"' + (it.deliver === k ? " selected" : "") + '>' + DELIVER_LABEL[k] + '</option>';
+              }).join("") + '</select>' +
+          '</div>' +
+          '<div class="xlink-h">파트너에게 보낼 말 — 고치면 그대로 나갑니다</div>' +
+          '<textarea class="auto-prompt" data-auto-prompt="' + esc(it.id) + '">' + esc(it.prompt || "") + '</textarea>' +
+          '<div style="margin-top:var(--g-space-3)">' +
+            '<button class="g-btn g-btn--soft g-btn--sm" type="button" data-auto-save="' + esc(it.id) + '">저장</button>' +
+          '</div>' +
+        '</div>' +
+      '</details>' +
+    '</div>';
+  }
+
+  function activityHTML() {
+    if (!activity.length) {
+      return '<div class="empty"><span class="em">🗒️</span>아직 남은 활동이 없어요.<br>' +
+        '자동화를 켜거나 화면에서 일을 시키면 여기에 쌓여요.</div>';
+    }
+    return activity.slice(0, 40).map(function (a) {
+      var auto = a.kind === "auto";
+      var stateTxt = { started: "시작됨", done: "완료", failed: "실패", skipped: "건너뜀", blocked: "답 필요" }[a.state] || (a.state || "");
+      return '<div class="act-row">' +
+        '<span class="act-at">' + esc(String(a.at || "").replace("T", " ").slice(5, 16)) + '</span>' +
+        '<span class="act-t">' + esc(a.title || "(제목 없음)") +
+          (a.summary ? ' <span style="color:var(--g-fg-subtle)">— ' + esc(String(a.summary).slice(0, 80)) + '</span>' : '') + '</span>' +
+        '<span class="act-why ' + (auto ? "auto" : "req") + '">' + (auto ? "자동 · " + esc(a.why || "") : "내가 요청") + '</span>' +
+        '<span class="act-at">' + esc(stateTxt) + '</span>' +
+      '</div>';
+    }).join("");
+  }
+
+  function renderAuto() {
+    if (!SERVER_MODE) {
+      return panelWrap("auto", "정해진 때에 파트너가 스스로 일하게 만드는 곳이에요.",
+        '<section class="card"><div class="empty"><span class="em">⟳</span>' +
+        '자동화는 <b>로컬 서버로 열었을 때</b> 동작해요.<br>' +
+        '터미널에서 <code>./dashboard.sh</code> 로 열면 여기에 자동화 목록이 나타나요.</div></section>');
+    }
+    var onN = automations.filter(function (a) { return a.enabled; }).length;
+    var list = automations.length
+      ? automations.map(autoCardHTML).join("")
+      : '<div class="empty"><span class="em">⟳</span>자동화를 불러오는 중이에요…</div>';
+    return panelWrap("auto",
+      "정해진 때에 파트너가 스스로 일하게 만드는 곳이에요. 스위치만 켜면 됩니다.",
+      '<section class="card" aria-labelledby="auto-h" id="auto-list">' +
+        '<h2 class="card-title" id="auto-h">자동화 <span class="count">· ' +
+          (onN ? onN + '개 켜짐 / ' : '') + automations.length + '개</span></h2>' +
+        '<div class="heat-sum" style="margin-top:0">전부 <b>꺼진 채로</b> 시작해요 — 원하는 것만 켜세요. ' +
+          '한 번에 하나씩만 돌고, 한 일은 아래 내역에 전부 남아요.</div>' +
+        list +
+      '</section>' +
+      '<section class="card" aria-labelledby="act-h" id="auto-activity">' +
+        '<h2 class="card-title" id="act-h">파트너 활동 내역 <span class="count">· ' + activity.length + '건</span></h2>' +
+        activityHTML() +
+      '</section>');
+  }
+
+  function fetchAutomations() {
+    if (!SERVER_MODE) return;
+    Promise.all([
+      fetch("/api/automations", { cache: "no-store" }).then(function (r) { return r.ok ? r.json() : null; }),
+      fetch("/api/activity", { cache: "no-store" }).then(function (r) { return r.ok ? r.json() : null; })
+    ]).then(function (rs) {
+      var changed = false;
+      if (rs[0] && JSON.stringify(rs[0].items) !== JSON.stringify(automations)) { automations = rs[0].items || []; changed = true; }
+      if (rs[1] && JSON.stringify(rs[1].items) !== JSON.stringify(activity)) { activity = rs[1].items || []; changed = true; }
+      if (changed && activeTab === "auto") paintView();
+    }).catch(function () {});
+  }
+
+  function saveAutomation(id, patch) {
+    if (!partnerReady() && !BRIDGE) return;
+    var body = { id: id };
+    Object.keys(patch || {}).forEach(function (k) { body[k] = patch[k]; });
+    fetch("/api/automations", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Dashboard-Token": (BRIDGE || {}).token || "" },
+      body: JSON.stringify(body)
+    }).then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) {
+        if (!j) { toast("저장하지 못했어요"); return; }
+        automations = j.items || automations;
+        if (activeTab === "auto") paintView();
+        toast("저장했어요");
+      })
+      .catch(function () { toast("저장하지 못했어요"); });
   }
 
   // 관계 지도 — staff[].relationships 를 원형 배치 그래프로. 이름은 직접 라벨(색만으로 식별하지 않는다).
@@ -3756,7 +3969,7 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
       head + inner + '</section>';
   }
 
-  var RENDERERS = { home: renderHome, todos: renderTodos, project: renderProject, team: renderTeam, kanban: renderKanban, records: renderRecords };
+  var RENDERERS = { home: renderHome, todos: renderTodos, project: renderProject, team: renderTeam, kanban: renderKanban, records: renderRecords, auto: renderAuto };
 
   // ── 데이터 신선도 고지 ────────────────────────────────────
   // 데이터 기준일(status.today.date)이 실제 오늘과 다르면 숨기지 않고 알린다.
@@ -3778,6 +3991,15 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
         '<span class="ico" aria-hidden="true">↻</span>새로고침</button></div>';
   }
   function liveSideHTML() { return '<div id="live-side"></div>'; }
+  // 푸터는 마운트 때 한 번 그려진다. 그 시점에 아직 직독이 안 끝났으면 "실패" 로 굳어
+  // **영구히 거짓말**을 한다(실측 결함). 상태가 바뀌면 다시 그린다.
+  function paintFoot() {
+    var f = document.querySelector("footer");
+    if (!f) return;
+    var tmp = document.createElement("div");
+    tmp.innerHTML = footHTML();
+    f.replaceWith(tmp.firstChild);
+  }
   function footHTML() {
     // 무엇을 읽고 있는지 정직하게 밝힌다 — 서버 모드면 상태 파일 직독, 파일 모드면 래퍼.
     var srcLine = (SERVER_MODE && srvLive)
@@ -3843,6 +4065,7 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
     }
     // 페인트 뒤 후처리 — 필터 카운트·검색 강조·점프 대상 펼침
     if (activeTab === "todos") { paintTodoList(); focusPendingTodo(); }
+    if (activeTab === "auto") { fetchAutomations(); }
     if (activeTab === "records") {
       afterRecPaint();
       // 서버 모드: 진입 시 선택된 파일의 본문이 임베드에 없으면 파일에서 가져와 채운다
@@ -4675,6 +4898,38 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
     if (target.closest("[data-runner-close]")) { runnerClose(); return; }
     if (target.closest("[data-runner-refresh]")) { runnerClose(); location.reload(); return; }
     if (target.closest("[data-runner-send]")) { runnerSend(); return; }
+    var jstop = target.closest("[data-job-stop]");
+    if (jstop) {
+      var jid = jstop.getAttribute("data-job-stop");
+      jstop.disabled = true; jstop.textContent = "그만두는 중…";
+      fetch("/api/jobs/stop", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Dashboard-Token": (BRIDGE || {}).token || "" },
+        body: JSON.stringify({ id: jid })
+      }).then(function () { toast("작업을 그만뒀어요"); fetchSessions(); })
+        .catch(function () { toast("그만두지 못했어요"); });
+      return;
+    }
+    // 자동화 켜기/끄기 — 이 화면의 주 조작
+    var sw = target.closest("[data-auto-toggle]");
+    if (sw) {
+      var aid = sw.getAttribute("data-auto-toggle");
+      var cur = sw.getAttribute("aria-checked") === "true";
+      sw.setAttribute("aria-checked", cur ? "false" : "true");   // 즉시 반응(왕복을 기다리지 않는다)
+      saveAutomation(aid, { enabled: !cur });
+      return;
+    }
+    var asave = target.closest("[data-auto-save]");
+    if (asave) {
+      var sid = asave.getAttribute("data-auto-save");
+      function val(attr) { var el = document.querySelector('[data-auto-' + attr + '="' + sid + '"]'); return el ? el.value : null; }
+      var patch = { trigger: { kind: val("kind") || "daily", at: val("at") || "09:00" } };
+      if (val("day")) patch.trigger.day = +val("day");
+      if (val("deliver")) patch.deliver = val("deliver");
+      if (val("prompt")) patch.prompt = val("prompt");
+      saveAutomation(sid, patch);
+      return;
+    }
     // ── 필터 칩 (할 일·칸반) — 목록만 부분 교체 ──
     var fc = target.closest("[data-tf]");
     if (fc) {
@@ -5029,6 +5284,7 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
     backfillBodies();
     startPolling();
     startLivePolling();
+    if (SERVER_MODE) { fetchAutomations(); setInterval(fetchAutomations, 15000); }
   }
 
   // "갱신 N초 전" 라벨을 1초마다 갱신 (전체 리로드 없이 표시만 최신화)
@@ -5051,7 +5307,7 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
       if (modalOpen() || cmdkOpened()) { pollServer(); return; }   // 노트 읽는 중·검색 중엔 건드리지 않는다
       Promise.all([fetchJSON("state/status.json"), fetchJSON("state/team.json")])
         .then(function (r) {
-          srvLive = true;
+          if (!srvLive) { srvLive = true; paintFoot(); }
           var sig = dataSig({ status: r[0], team: r[1] });
           if (sig !== bootSig) {
             bootSig = sig;
@@ -5062,7 +5318,7 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
           }
           pollServer();
         })
-        .catch(function () { srvLive = false; pollServer(); });
+        .catch(function () { if (srvLive) { srvLive = false; paintFoot(); } pollServer(); });
     }, POLL_MS);
   }
 
@@ -5086,7 +5342,7 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
   // 서버 모드면 상태 파일을 먼저 직접 읽고 그린다 — 첫 화면부터 최신이 되도록.
   // (래퍼가 낡아 있어도 홈·할 일·프로젝트·팀·칸반은 실시간 값으로 뜬다)
   if (SERVER_MODE) {
-    loadLiveState(function () { bootSig = dataSig(data); boot(); });
+    loadLiveState(function () { bootSig = dataSig(data); boot(); paintFoot(); });
   } else {
     boot();
   }
