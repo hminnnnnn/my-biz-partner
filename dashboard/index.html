@@ -886,6 +886,21 @@
   .fold-b { padding-top: var(--g-space-2); }
   .todo.is-done .todo-title { color: var(--g-fg-subtle); text-decoration: line-through; }
 
+  /* ── 위키 내부 링크 (본문 안 경로 → 눌러 열기) ──────────
+     옵시디언·노션의 그 감각: 문서를 읽다가 언급된 문서로 그대로 건너뛴다.
+     밑줄이 아니라 은은한 배경 + 브랜드 잉크 — 본문 흐름을 끊지 않으면서 눌러진다는 게 보이게. */
+  .inlink {
+    font: inherit; font-family: var(--g-font-mono); font-size: .94em;
+    color: var(--g-brand); background: var(--g-brand-soft);
+    border: 0; border-radius: var(--g-radius-1); padding: 0 3px; margin: 0 -1px;
+    cursor: pointer; text-decoration: none;
+    transition: background-color var(--g-motion-tap), color var(--g-motion-tap);
+  }
+  .inlink:hover { background: color-mix(in oklab, var(--g-brand) 24%, transparent); }
+  .inlink:focus-visible { outline: none; box-shadow: var(--g-focus-ring); }
+  code .inlink { background: transparent; padding: 0; }
+  code .inlink:hover { background: var(--g-brand-soft); }
+
   /* ── 관련 링크 칩 (교차 연결 — 탐색기가 못 하는 것) ─────── */
   .xlinks { display: flex; flex-wrap: wrap; gap: var(--g-space-2); margin-top: var(--g-space-3); }
   .xlink {
@@ -1302,16 +1317,81 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
   }
 
   // ── 간단 마크다운 렌더러 (제목·목록·굵게·인라인코드·코드블록·표) ──
+  // ── 위키 내부 링크 ─────────────────────────────────────────
+  // 본문에 적힌 파일 경로는 지금까지 **죽은 텍스트**였다(노션·옵시디언과의 결정적 차이).
+  // 이것을 눌러 열리는 링크로 바꾼다. '파일로 이동'(한 번도 동작한 적 없는 앵커)의 대체재다.
+  //   인식 대상: notes/... 전체 경로 · 같은 프로젝트 폴더의 형제 파일명(00-계획.md 같은 상대 표기)
+  // 실제로 존재하는 경로만 링크로 만든다 — 없는 파일을 링크처럼 보이게 하지 않는다(정직).
+  var _pathIndex = null;
+  function pathIndex() {
+    if (_pathIndex) return _pathIndex;
+    var byPath = {}, byBase = {};
+    allRecords().forEach(function (f) {
+      if (!f.path) return;
+      byPath[f.path] = 1;
+      var b = basename(f.path);
+      (byBase[b] = byBase[b] || []).push(f.path);
+    });
+    Object.keys(contentByPath).forEach(function (p) {
+      if (byPath[p]) return;
+      byPath[p] = 1;
+      var b = basename(p);
+      (byBase[b] = byBase[b] || []).push(p);
+    });
+    _pathIndex = { byPath: byPath, byBase: byBase };
+    return _pathIndex;
+  }
+  // 표기 → 실제 경로. baseDir 이 있으면 형제 파일명을 그 폴더에서 먼저 찾는다(중복 파일명 오연결 방지).
+  function resolveInternal(raw, baseDir) {
+    if (!raw) return null;
+    var t = String(raw).replace(/^\.\//, "").replace(/[)\],.]+$/, "").trim();
+    var ix = pathIndex();
+    if (ix.byPath[t]) return t;
+    if (baseDir) {
+      var sib = baseDir.replace(/\/$/, "") + "/" + t;
+      if (ix.byPath[sib]) return sib;
+    }
+    var cands = ix.byBase[basename(t)];
+    if (cands && cands.length === 1) return cands[0];
+    if (cands && baseDir) {
+      for (var i = 0; i < cands.length; i++) if (cands[i].indexOf(baseDir) === 0) return cands[i];
+    }
+    return null;
+  }
+  function dirOf(p) { var a = String(p || "").split("/"); a.pop(); return a.join("/"); }
+  // 인라인 텍스트(이미 esc 된 HTML 조각) 안의 경로 표기를 링크로 바꾼다.
+  var INLINK_RE = /((?:notes\/)?[\w가-힣._-]+(?:\/[\w가-힣._-]+)*\.(?:md|csv|xlsx))/g;
+  function linkifyPaths(escapedHtml, baseDir) {
+    return String(escapedHtml).replace(INLINK_RE, function (m) {
+      var hit = resolveInternal(m, baseDir);
+      if (!hit) return m;
+      return '<button class="inlink" type="button" data-inlink="' + esc(hit) + '" title="' + esc(hit) + '">' +
+        m + '</button>';
+    });
+  }
+
   // collect(선택): 목차용으로 헤딩을 담아 보낸다 — [{lv, text, id}]. 헤딩엔 앵커 id 를 붙인다.
-  function renderMarkdown(src, collect) {
+  // baseDir(선택): 형제 파일명(00-계획.md)을 풀 기준 폴더. 내부 링크 변환에 쓴다.
+  function renderMarkdown(src, collect, baseDir) {
     var lines = String(src || "").replace(/\r\n/g, "\n").split("\n"), out = [], i = 0, hn = 0;
     function inl(t) {
       t = esc(t);
       t = t.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
-      t = t.replace(/`([^`]+)`/g, "<code>$1</code>");
+      // 코드 조각을 자리표시자로 빼 둔다 — 그러지 않으면 경로 링크화가 **자기가 만든 마크업의
+      // data-inlink 속성값을 다시 훑어** 태그를 깨뜨린다(실측 결함: 링크 대상이 '<button class=' 이 됨).
+      var codes = [];
+      t = t.replace(/`([^`]+)`/g, function (_m, inner) {
+        codes.push(inner);
+        return "@@C" + (codes.length - 1) + "@@";   // @ 는 경로 문자 집합에 없어 링크 정규식에 안 걸린다
+      });
+      t = linkifyPaths(t, baseDir);
       // 링크: [텍스트](http…) + 맨몸 URL — 클릭하면 웹뷰 모달로 열린다 (뷰어 위임 리스너)
       t = t.replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
       t = t.replace(/(^|\s)(https?:\/\/[^\s<]+)/g, '$1<a href="$2" target="_blank" rel="noopener noreferrer">$2</a>');
+      // 코드 조각 복원 — 산출물 헤더가 `00-계획.md` 처럼 백틱으로 쓰므로 그 안도 링크로 만든다
+      t = t.replace(/@@C(\d+)@@/g, function (_m, n) {
+        return "<code>" + linkifyPaths(codes[+n], baseDir) + "</code>";
+      });
       return t;
     }
     while (i < lines.length) {
@@ -1509,8 +1589,7 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
             return '<div class="xlink-h">관련</div><div class="xlinks">' + chips + '</div>';
           })() +
           '<div class="acts" style="margin-top:var(--g-space-3)">' +
-            (t.source ? '<button class="g-btn g-btn--soft g-btn--sm" type="button" data-viewer="' + esc(t.source) + '">전체 보기</button>' +
-              '<a class="g-btn g-btn--secondary g-btn--sm" href="' + esc(t.source) + '" target="_blank" rel="noopener" data-goto>파일로 이동 ↗</a>' : '') +
+            (t.source ? '<button class="g-btn g-btn--soft g-btn--sm" type="button" data-viewer="' + esc(t.source) + '">전체 보기</button>' : '') +
             '<button class="g-btn g-btn--secondary g-btn--sm" type="button" data-copy="' + esc(t.source || "") + '" aria-label="경로 복사">⧉ 복사</button>' +
           '</div>' +
         '</div>' +
@@ -2228,7 +2307,6 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
         (sn ? '<span class="out-snip">' + esc(sn) + '</span>' : '') + '</span>' +
         '<span class="acts" style="margin-left:auto">' +
           '<button class="g-btn g-btn--soft g-btn--sm" type="button" data-viewer="' + esc(o.path) + '">보기</button>' +
-          '<a class="g-btn g-btn--secondary g-btn--sm" href="' + esc(o.path) + '" target="_blank" rel="noopener" data-goto>파일로 이동 ↗</a>' +
           '<button class="g-btn g-btn--secondary g-btn--sm" type="button" data-copy="' + esc(o.path) + '" aria-label="경로 복사">⧉</button>' +
         '</span></li>';
     });
@@ -2787,7 +2865,7 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
       var metaLine = (src ? esc(src) : "") + (src && dt ? " · " : "") + (dt ? esc(dt) : "");
       var heads = [];
       var body = entry.table ? tableHTML(entry.table, true)
-        : entry.content ? '<div class="md-body">' + renderMarkdown(entry.content, heads) + '</div>'
+        : entry.content ? '<div class="md-body">' + renderMarkdown(entry.content, heads, dirOf(curFile)) + '</div>'
         : '<div class="empty"><span class="em">📄</span>이 파일은 미리보기가 준비되지 않았어요.<br>‘파일로 이동’으로 원본을 여세요.</div>';
       // 목차 — 긴 노트에서 어디가 어디인지 보이게 (2단 이상일 때만)
       var tocHTML = "";
@@ -2824,7 +2902,6 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
             (metaLine ? '<span class="rec-read-meta">' + metaLine + '</span>' : '') + '</div>' +
         '</div>' +
         '<span class="acts">' +
-          '<a class="g-btn g-btn--secondary g-btn--sm" href="' + esc(curFile) + '" target="_blank" rel="noopener" data-goto>파일로 이동 ↗</a>' +
           '<button class="g-btn g-btn--secondary g-btn--sm" type="button" data-copy="' + esc(curFile) + '" aria-label="경로 복사">⧉</button>' +
         '</span></div>' +
         (q ? '<div class="rec-hitline" id="rec-hitline"></div>' : '') +
@@ -3133,6 +3210,22 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
       '<a class="g-btn g-btn--secondary g-btn--sm" href="' + esc(url) + '" target="_blank" rel="noopener noreferrer">새 탭에서 열기 ↗</a></div>' +
       '<iframe class="webview" src="' + esc(url) + '" sandbox="allow-scripts allow-same-origin allow-forms allow-popups" referrerpolicy="no-referrer" title="웹 미리보기"></iframe>');
   }
+  // 내부 링크 열기 — 기록 탭 리딩 페인으로 보낸다(모달이 아니라 위키처럼 그 자리에서 이어 읽기).
+  // 모달(뷰어·티켓) 안에서 눌렀으면 모달을 닫고 기록 탭으로 넘긴다.
+  function openInternal(path) {
+    if (!path) return;
+    if (modalOpen()) closeModal();
+    recView.file = path;
+    pushRecent(path);
+    var fk = recFolderKeyOf(path);
+    if (fk) recView.folder = fk;
+    if (activeTab !== "records") { location.hash = "#records"; }
+    else { paintView(); }
+    if (SERVER_MODE && !hasBody(path)) {
+      ensureBody(path, function (filled) { if (filled && recView.file === path) paintView(); });
+    }
+  }
+
   function openViewer(path) {
     // 서버 모드: 래퍼에 본문이 없으면 파일에서 바로 읽어 온 뒤 연다 (한 번만 재시도)
     if (SERVER_MODE && path && !hasBody(path)) {
@@ -3146,12 +3239,11 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
     var entry = contentByPath[path];
     var title = (entry && entry.title) ? entry.title : basename(path);
     var mdHtml = (entry && entry.table) ? tableHTML(entry.table)
-      : (entry && entry.content) ? renderMarkdown(entry.content)
+      : (entry && entry.content) ? renderMarkdown(entry.content, null, dirOf(path))
       : '<div class="empty" style="padding:var(--g-space-7) var(--g-space-5)"><span class="em">📄</span>' +
         '이 파일은 미리보기가 준비되지 않았어요.<br>‘파일로 이동’으로 원본을 여세요.<br>' +
         '<span style="color:var(--g-fg-subtle)">텔레그램에서 파트너가 활동하면 자동으로 채워집니다.</span></div>';
     var foot = '<div class="md-foot"><code>' + esc(path) + '</code>' +
-      '<a class="g-btn g-btn--secondary g-btn--sm" href="' + esc(path) + '" target="_blank" rel="noopener" data-goto>파일로 이동 ↗</a>' +
       '<button class="g-btn g-btn--secondary g-btn--sm" type="button" data-copy="' + esc(path) + '" aria-label="경로 복사">⧉ 복사</button></div>';
     openModal(title, '<div class="md-body">' + mdHtml + '</div>' + foot);
   }
@@ -3168,7 +3260,6 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
         '<div class="tk-src"><code>' + esc(tk.source) + '</code></div>' +
         '<div class="acts" style="margin-top:var(--g-space-3)">' +
           '<button class="g-btn g-btn--soft g-btn--sm" type="button" data-viewer="' + esc(tk.source) + '">보기</button>' +
-          '<a class="g-btn g-btn--secondary g-btn--sm" href="' + esc(tk.source) + '" target="_blank" rel="noopener" data-goto>파일로 이동 ↗</a>' +
           '<button class="g-btn g-btn--secondary g-btn--sm" type="button" data-copy="' + esc(tk.source) + '" aria-label="경로 복사">⧉</button>' +
         '</div></span></li>';
     }
@@ -3543,8 +3634,9 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
       }
       return;
     }
-    // '파일로 이동'(data-goto) 은 순수 앵커 — 브라우저 기본 동작(새 탭)에 위임
-    if (target.closest("[data-goto]")) return;
+    // 본문 안의 내부 경로 링크 → 기록 탭 리딩 페인으로 (위키 문법. '파일로 이동' 을 대체한다)
+    var inl = target.closest("[data-inlink]");
+    if (inl) { openInternal(inl.getAttribute("data-inlink") || ""); return; }
     // ── 필터 칩 (할 일·칸반) — 목록만 부분 교체 ──
     var fc = target.closest("[data-tf]");
     if (fc) {

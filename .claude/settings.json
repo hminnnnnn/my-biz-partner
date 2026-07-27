@@ -14,7 +14,6 @@
       "Bash(open ./dashboard/index.html)"
     ],
     "deny": [
-      "Write(../**)",
       "Edit(../**)",
       "Bash(rm -rf:*)",
       "Bash(curl:*)",
