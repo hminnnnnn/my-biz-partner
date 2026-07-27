@@ -1098,6 +1098,59 @@
   .out-snip { font: var(--g-micro); color: var(--g-fg-subtle); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
   .member .m-who { display: inline-flex; align-items: center; gap: var(--g-space-2); flex: none; }
 
+  /* ── 프로젝트: 다음 한 수 + 진행 이야기 (W21) ─────────────
+     개편 전에는 산출물 파일명이 화면 한가운데를 차지했다. 주인공을 바꾼다. */
+  .nextmove {
+    background: var(--g-brand-soft); border-radius: var(--g-radius-card);
+    padding: var(--g-space-5); margin: var(--g-space-5) 0;
+  }
+  .nextmove.warn { background: var(--g-warning-soft); }
+  .nextmove.done { background: var(--g-surface-sunken); }
+  .nm-k {
+    display: block; font: var(--g-micro); font-weight: 700; color: var(--g-brand);
+    text-transform: uppercase; letter-spacing: .04em;
+  }
+  .nextmove.warn .nm-k { color: var(--g-warning); }
+  .nextmove.done .nm-k { color: var(--g-fg-subtle); }
+  .nm-t { font: var(--g-body); color: var(--g-fg); margin: var(--g-space-2) 0 0; }
+
+  .story { list-style: none; margin: var(--g-space-4) 0 0; padding: 0; }
+  .story > li {
+    position: relative; padding: 0 0 var(--g-space-6) var(--g-space-7);
+  }
+  .story > li::before {
+    content: ""; position: absolute; left: 5px; top: 18px; bottom: 0; width: 1px; background: var(--g-border);
+  }
+  .story > li:last-child::before { display: none; }
+  .story .nd {
+    position: absolute; left: 0; top: 6px; width: 11px; height: 11px; border-radius: 50%;
+    background: var(--g-brand); box-sizing: border-box;
+  }
+  .st-title {
+    font: var(--g-body-str); color: var(--g-fg); background: transparent; border: 0; padding: 0;
+    cursor: pointer; text-align: left;
+  }
+  .st-title:hover { color: var(--g-brand); }
+  .st-who { display: flex; flex-wrap: wrap; gap: var(--g-space-3); margin-top: var(--g-space-2); }
+  .who { display: inline-flex; align-items: center; gap: var(--g-space-2); }
+  .who-n { font: var(--g-caption); color: var(--g-fg); font-weight: 600; }
+  .who-r { font: var(--g-micro); color: var(--g-fg-subtle); }
+  .st-in { display: flex; flex-wrap: wrap; align-items: center; gap: var(--g-space-2); margin-top: var(--g-space-3); }
+  .st-k {
+    font: var(--g-micro); font-weight: 700; color: var(--g-fg-subtle);
+    text-transform: uppercase; letter-spacing: .04em; margin-right: var(--g-space-1);
+  }
+  .st-sn {
+    font: var(--g-caption); color: var(--g-fg-muted); margin-top: var(--g-space-2);
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  }
+  .st-rev {
+    margin-top: var(--g-space-3); padding: var(--g-space-3) var(--g-space-4);
+    background: var(--g-surface-sunken); border-radius: var(--g-radius-control);
+    display: flex; flex-wrap: wrap; align-items: center; gap: var(--g-space-2);
+  }
+  .st-rev .st-sn { width: 100%; margin-top: var(--g-space-1); }
+
   /* ── 팀: 관계 지도 + 편성 이력 ──────────────────────────── */
   .relmap { width: 100%; max-width: 520px; margin: 0 auto; display: block; overflow: visible; }
   .relmap .edge { stroke-width: 1.5; fill: none; }
@@ -1988,8 +2041,10 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
     return '<div class="wtl"><div class="wtl-grid">' + grid + '</div>' + legend + '</div>';
   }
 
-  // 본문 발췌 (인라인 리딩) — 제목 줄·빈 줄을 걷어내고 앞부분만
-  function bodySnippet(path, maxLen) {
+  // 본문 발췌 (인라인 리딩) — 제목 줄·빈 줄을 걷어내고 앞부분만.
+  // skipMeta: 인용부호 머리글(> 작성: / > 입력: …)을 건너뛴다 — 진행 이야기에서는 그 내용을
+  //   이미 아바타·링크 칩으로 구조화해 보여주므로, 발췌에서 또 반복하면 노이즈가 된다(실측).
+  function bodySnippet(path, maxLen, skipMeta) {
     var e = contentByPath[path];
     if (!e) return null;
     if (e.table) {
@@ -1999,9 +2054,13 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
     if (!e.content) return null;
     var lines = String(e.content).split("\n").filter(function (l) {
       var s2 = l.trim();
+      if (skipMeta && s2.charAt(0) === ">") return false;
+      if (/^\|[\s:|-]+\|$/.test(s2)) return false;          // 표 구분선(|---|---|)은 발췌에 아무 뜻이 없다
       return s2 && s2.charAt(0) !== "#" && !/^[-=]{3,}$/.test(s2);
     });
-    var txt = lines.slice(0, 3).join(" ").replace(/[*`>]/g, "").replace(/\s+/g, " ").trim();
+    var txt = lines.slice(0, 3).join(" ")
+      .replace(/\s*\|\s*/g, " · ").replace(/^\s*·\s*|\s*·\s*$/g, "")   // 표 행은 · 로 읽히게
+      .replace(/[*`>]/g, "").replace(/\s+/g, " ").trim();
     if (!txt) return null;
     var lim = maxLen || 180;
     return txt.length > lim ? txt.slice(0, lim) + "…" : txt;
@@ -2668,6 +2727,163 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
     });
     return { byPhase: byPhase, usedN: Object.keys(used).length };
   }
+  // ── 산출물 계보 파싱 (W21) ─────────────────────────────────
+  // project-team 스킬 규약(SKILL.md §서명): 산출물 헤더에 `> 작성: 이름 (역할)` 한 줄.
+  // 실주행에서는 `> 입력: \`00-계획.md\`(근거), \`notes/...\`` 계보도 함께 쓴다.
+  // 둘 다 **있을 때만** 이야기로 쓰고, 없으면 그 노드는 조용히 이름만 남는다(지어내지 않는다).
+  function parseOutputHead(path) {
+    var e = contentByPath[path];
+    var head = (e && e.content) ? String(e.content).slice(0, 1200) : "";
+    var authors = [], inputs = [];
+    var mw = head.match(/^>\s*작성\s*:\s*(.+)$/m);
+    if (mw) {
+      // "Max (팀장/PM) + Otto (운영)" → ["Max","Otto"] / 이름이 없으면 역할 그대로
+      mw[1].split(/\s*\+\s*/).forEach(function (chunk) {
+        var nm = chunk.replace(/\(.*?\)/g, "").split(/[.,·]/)[0].trim();
+        if (nm && nm.length <= 20) authors.push(nm);
+      });
+    }
+    var mi = head.match(/^>\s*입력\s*:\s*(.+)$/m);
+    if (mi) {
+      (mi[1].match(/`([^`]+)`/g) || []).forEach(function (tok) {
+        var raw = tok.replace(/`/g, "");
+        var hit = resolveInternal(raw, dirOf(path));
+        if (hit && inputs.indexOf(hit) < 0) inputs.push(hit);
+      });
+    }
+    return { authors: authors, inputs: inputs };
+  }
+  // 파일명 앞 숫자 = 진행 순서. `NN-리뷰-X` 는 `NN-X`(또는 X)에 대한 검토 문서다.
+  function outMeta(path) {
+    var base = basename(path).replace(/\.(md|csv|xlsx)$/i, "");
+    var m = base.match(/^(\d+)[-_]?(.*)$/);
+    var ord = m ? parseInt(m[1], 10) : 999;
+    var rest = m ? m[2] : base;
+    // 검토 문서 표기는 키트마다 다르다 — `NN-리뷰-X`(가을시즌) · `NN-검토`(리브랜딩) 둘 다 인식.
+    // 다만 대상이 특정되지 않는 검토(그냥 `03-검토`)는 짝을 못 찾아 독립 노드로 남는다 — 그게 맞다.
+    var isReview = /^(리뷰|검토|review)[-_]/i.test(rest);
+    var subject = rest.replace(/^(리뷰|검토|review)[-_]?/i, "");
+    return { base: base, ord: ord, rest: rest, isReview: isReview, subject: subject };
+  }
+  // 산출물들을 "누가 만들고 → 무엇을 받아썼고 → 누가 검토했나" 이야기로 엮는다
+  function projectStory(p, items) {
+    var nodes = items.map(function (o) {
+      var path = (typeof o === "string") ? o : o.path;
+      var meta = outMeta(path);
+      return { path: path, meta: meta, head: parseOutputHead(path), reviews: [] };
+    }).sort(function (a, b) { return a.meta.ord - b.meta.ord || a.meta.base.localeCompare(b.meta.base); });
+
+    // 검토 문서를 대상 산출물에 붙인다 (짝을 못 찾으면 독립 노드로 남긴다)
+    var main = [];
+    nodes.forEach(function (n) {
+      if (!n.meta.isReview) { main.push(n); return; }
+      var host = null;
+      main.forEach(function (m2) {
+        if (!host && m2.meta.subject && n.meta.subject && m2.meta.subject.indexOf(n.meta.subject) >= 0) host = m2;
+      });
+      if (!host) { for (var i = main.length - 1; i >= 0; i--) { if (!main[i].meta.isReview) { host = main[i]; break; } } }
+      if (host) host.reviews.push(n); else main.push(n);
+    });
+    return main;
+  }
+  function staffByAnyName(nm) {
+    if (!nm) return null;
+    if (staffByName[nm]) return staffByName[nm];
+    for (var i = 0; i < staffList.length; i++) {
+      if (staffList[i].name && (nm.indexOf(staffList[i].name) >= 0 || staffList[i].name.indexOf(nm) >= 0)) return staffList[i];
+    }
+    return staffByRole[nm] || null;
+  }
+  function whoChip(nm) {
+    var st = staffByAnyName(nm);
+    return '<span class="who">' + (st ? avatarHTML(st, st.name, "") : '<span class="avatar vacant" aria-hidden="true">' + esc(String(nm).slice(0, 1)) + '</span>') +
+      '<span class="who-n">' + esc(st ? st.name : nm) + '</span>' +
+      (st && st.role ? '<span class="who-r">' + esc(st.role) + '</span>' : '') + '</span>';
+  }
+  function storyHTML(p, items) {
+    var main = projectStory(p, items);
+    if (!main.length) return "";
+    var withAuthor = 0;
+    main.forEach(function (n) { if (n.head.authors.length) withAuthor++; });
+    var rows = main.map(function (n) {
+      var title = (contentByPath[n.path] && contentByPath[n.path].title) || n.meta.base;
+      var authors = n.head.authors.length
+        ? '<div class="st-who">' + n.head.authors.map(whoChip).join("") + '</div>' : "";
+      var inputs = n.head.inputs.length
+        ? '<div class="st-in"><span class="st-k">받아쓴 것</span>' + n.head.inputs.map(function (ip) {
+            var ti = (contentByPath[ip] && contentByPath[ip].title) || basename(ip);
+            return '<button class="xlink" type="button" data-inlink="' + esc(ip) + '">' +
+              '<span class="ic" aria-hidden="true">↳</span><span class="tx">' + esc(ti) + '</span></button>';
+          }).join("") + '</div>' : "";
+      var sn = bodySnippet(n.path, 150, true);
+      var revs = n.reviews.map(function (r) {
+        var rsn = bodySnippet(r.path, 150, true);
+        return '<div class="st-rev"><span class="st-k">검토</span>' +
+          (r.head.authors.length ? r.head.authors.map(whoChip).join("") : "") +
+          '<button class="xlink" type="button" data-inlink="' + esc(r.path) + '">' +
+            '<span class="ic" aria-hidden="true">▤</span><span class="tx">' +
+            esc((contentByPath[r.path] && contentByPath[r.path].title) || r.meta.base) + '</span></button>' +
+          (rsn ? '<div class="st-sn">' + esc(rsn) + '</div>' : '') + '</div>';
+      }).join("");
+      return '<li class="st-node">' +
+        '<span class="nd" aria-hidden="true"></span>' +
+        '<button class="st-title" type="button" data-inlink="' + esc(n.path) + '">' + esc(title) + '</button>' +
+        authors + inputs +
+        (sn ? '<div class="st-sn">' + esc(sn) + '</div>' : '') +
+        revs +
+      '</li>';
+    }).join("");
+    // 커버리지가 낮으면(서명이 거의 없으면) 그렇다고 밝힌다 — 반쪽 이야기를 완전한 척하지 않는다
+    var note = withAuthor < main.length
+      ? '<div class="match-why">이 프로젝트 문서 ' + main.length + '개 중 ' + withAuthor + '개에만 작성자 서명이 있어요 — ' +
+        '나머지는 파일 이름만 표시합니다.</div>' : "";
+    return '<div class="sub-h">진행 이야기 · 누가 무엇을 만들고 어떻게 검토됐나</div>' +
+      '<ul class="story">' + rows + '</ul>' + note;
+  }
+
+  // ── 다음 한 수 — 지금 무엇을 요청해야 넘어가는가 ───────────
+  // 전부 데이터 파생: 막힌/대기 멤버 · 현재 단계 · 다음 단계. 지어낸 재촉 문구는 쓰지 않는다.
+  function nextMoveHTML(p) {
+    if (p.done) {
+      var sm = p.summary ? String(p.summary) : "";
+      if (!sm) return "";
+      return '<section class="nextmove done"><span class="nm-k">결론</span>' +
+        '<p class="nm-t">' + esc(sm.length > 260 ? sm.slice(0, 260) + "…" : sm) + '</p></section>';
+    }
+    var mem = p.members || [];
+    var blocked = mem.filter(function (m) { return m.status === "blocked"; });
+    var waiting = mem.filter(function (m) { return m.status === "waiting"; });
+    var working = mem.filter(function (m) { return m.status === "working"; });
+    var phases = p.phases || [], ci = phases.indexOf(p.phase);
+    var nextPhase = (ci >= 0 && ci + 1 < phases.length) ? phases[ci + 1] : null;
+
+    var line, kind = "go";
+    if (blocked.length) {
+      kind = "warn";
+      line = blocked.map(function (m) { return (staffForMember(m) || {}).name || m.role; }).join("·") +
+        " 가 막혀 있어요 — " + (blocked[0].task || "") ;
+    } else if (waiting.length) {
+      line = waiting.map(function (m) { return (staffForMember(m) || {}).name || m.role; }).join("·") +
+        " 가 대기 중이에요 — " + (waiting[0].task || "");
+    } else if (working.length) {
+      line = working.map(function (m) { return (staffForMember(m) || {}).name || m.role; }).join("·") +
+        " 가 진행 중이에요" + (p.phase ? " (" + p.phase + " 단계)" : "");
+    } else {
+      line = p.phase ? (p.phase + " 단계 진행 중이에요.") : "진행 중이에요.";
+    }
+    if (p.health === "주의" && p.healthReason) { kind = "warn"; line = p.healthReason; }
+
+    var ask = "다음 단계로 넘기기";
+    return '<section class="nextmove ' + kind + '">' +
+      '<span class="nm-k">다음 한 수' + (nextPhase ? ' · ' + esc(nextPhase) + ' 단계로' : '') + '</span>' +
+      '<p class="nm-t">' + esc(line) + '</p>' +
+      partnerActions("", [
+        { id: "project.next", arg: p.id, label: ask, ic: "▶" },
+        { id: "project.digest", arg: p.id, label: "여기까지 정리해줘", ic: "≡" }
+      ]) +
+    '</section>';
+  }
+
   function projectDetailHTML(p) {
     var phases = p.phases || [];
     var curIdx = p.done ? phases.length : phases.indexOf(p.phase);
@@ -2706,8 +2922,14 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
     outItems = outItems.map(function (o) { return (typeof o === "string") ? { path: o } : o; });
     var outsBlock;
     if (outItems.length) {
-      outsBlock = '<div class="sub-h">산출물 · ' + outItems.length + '건' +
-        (outSource === "matched" ? ' <span style="font-weight:400;color:var(--g-fg-subtle)">· 기록에서 연결(추정)</span>' : '') + '</div>' +
+      // 산출물 파일 목록은 **접힘으로 강등**한다 — 개편 전에는 이게 화면 한가운데를 차지했다.
+      // 주인공은 위의 '진행 이야기'. 원본이 필요한 사람만 펼친다.
+      outsBlock = '<div class="fold"><button class="fold-h" type="button" data-fold="proj-outs" aria-expanded="' +
+        (openSet["fold-proj-outs"] ? "true" : "false") + '" aria-controls="fold-proj-outs">' +
+        '<span class="tw" aria-hidden="true">›</span>산출물 원본' +
+        (outSource === "matched" ? ' <span style="font-weight:400;color:var(--g-fg-subtle);text-transform:none">· 기록에서 연결(추정)</span>' : '') +
+        '<span class="n">' + outItems.length + '건</span></button>' +
+        '<div class="fold-b" id="fold-proj-outs"' + (openSet["fold-proj-outs"] ? "" : " hidden") + '>' +
         outListHTML(outItems) +
         // 추정 매칭이면 근거를 밝힌다 — 오매칭을 사용자가 알아챌 수 있어야 한다
         (outSource === "matched" && matchInfo
@@ -2716,7 +2938,7 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
               ? '제목 낱말 ‘' + esc(matchInfo.hits.join("’ · ‘")) + '’ 일치로'
               : esc(matchInfo.why) + ' 로') +
             ' 연결한 <b>추정</b>이에요. 다르면 기록 탭에서 직접 확인하세요.</div>'
-          : "");
+          : "") + '</div></div>';
     } else if (p.done) {
       outsBlock = '<div class="sub-h">산출물</div>' +
         '<div class="empty" style="padding:var(--g-space-5)"><span class="em">🗂️</span>이 프로젝트의 산출물은 <a class="more" href="#records" style="color:var(--g-brand-fg)">기록 탭</a>에서 볼 수 있어요.</div>';
@@ -2769,11 +2991,14 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
     var period = p.done ? (p.completedAt ? '<span class="pc-period" style="margin-left:auto">' + esc(ymd(p.completedAt)) + ' 완료</span>' : '') : '';
     var bar = (p.progress != null)
       ? '<div class="progress" style="margin-bottom:var(--g-space-5)"><div class="progress-track"><div class="progress-fill" style="width:' + p.progress + '%"></div></div><span class="progress-pct">' + p.progress + '%</span></div>' : '';
+    // 비율 반전 (W21): 다음 한 수 → 진행 이야기(주인공) → 단계·팀·로그 → 산출물 원본(접힘)
     var detail = '<section class="card" aria-labelledby="pj-h">' +
       '<button class="back-btn" type="button" data-project-back>‹ 프로젝트 목록</button>' +
       '<div class="proj-top"><h2 class="goal" id="pj-h">' + esc(p.goal) + '</h2>' + healthChip + period + '</div>' +
-      summaryBlock + steps + bar +
-      outsBlock + teamLogBlock +
+      (p.done ? '' : summaryBlock) + bar +
+      nextMoveHTML(p) +
+      storyHTML(p, outItems) +
+      steps + teamLogBlock + outsBlock +
     '</section>';
     return '<div class="stack">' + detail + '</div>';
   }
@@ -3731,6 +3956,29 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
           "미루는 게 부적절해 보이면 그 이유를 먼저 말해줘.";
       }
     },
+    "project.next": {
+      skill: "project-team",
+      title: function (p) { return "다음 단계 진행 — " + p.goal; },
+      prompt: function (p) {
+        return "대시보드에서 요청합니다.\n\n" +
+          "프로젝트 ‘" + p.goal + "’ 를 다음 단계로 진행해줘.\n" +
+          (p.phase ? "- 지금 단계: " + p.phase + "\n" : "") +
+          (p.phases && p.phases.length ? "- 전체 단계: " + p.phases.join(" → ") + "\n" : "") +
+          "\n지금 단계의 완료 기준을 산출물과 대조해 판정하고, 넘어갈 수 있으면 진행해줘. " +
+          "막는 게 있으면 무엇이 필요한지 먼저 알려줘.";
+      }
+    },
+    "project.digest": {
+      skill: "project-team · recall",
+      title: function (p) { return "여기까지 정리 — " + p.goal; },
+      prompt: function (p) {
+        return "대시보드에서 요청합니다.\n\n" +
+          "프로젝트 ‘" + p.goal + "’ 가 지금까지 어떻게 진행됐는지 정리해줘.\n" +
+          "- 무엇을 만들었고 누가 만들었는지\n- 어떤 판단이 있었고 왜 그렇게 정했는지\n" +
+          "- 아직 안 정해진 것 / 내가 결정해야 할 것\n" +
+          "\n산출물을 실제로 읽고 정리해줘. 추측으로 채우지 말고 없는 건 없다고 말해줘.";
+      }
+    },
     "todo.context": {
       skill: "recall",
       title: function (t) { return "지난 맥락 찾기 — " + t.title; },
@@ -3751,6 +3999,9 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
       var t = todos[+arg];
       if (!t) { toast("그 항목을 찾지 못했어요"); return; }
       ctx = t;
+    } else if (id.indexOf("project.") === 0) {
+      for (var i = 0; i < projectList.length; i++) if (projectList[i].id === arg) ctx = projectList[i];
+      if (!ctx) { toast("그 프로젝트를 찾지 못했어요"); return; }
     }
     if (!ctx) return;
     askPartner(spec.title(ctx), spec.prompt(ctx));
