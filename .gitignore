@@ -3,3 +3,4 @@ install.log
 run*.log
 out.log
 .omc/
+.dash-viewer.json

@@ -81,6 +81,9 @@ URL="http://127.0.0.1:$PORT/dashboard/index.html"
 # 브리지 서버: 정적 서빙 + '파트너에게 시키기'(claude -p) 호출 엔드포인트.
 # 127.0.0.1 바인딩 · Host/Origin 검증 · 세션 토큰 · 셸 미경유 — 자세한 이유는 파일 상단 주석 참고.
 if [ -f "$ROOT/dashboard-server.py" ]; then
+  # 뷰어 표식 — 개발 게이트의 고아 청소가 "사용자가 직접 띄운 서버"를 테스트 잔재로
+  # 오인해 죽인 실사고(W25) 방지. exec 는 PID 를 보존하므로 $$ 가 곧 서버 PID 다.
+  printf '{"pid":%s,"port":%s}\n' "$$" "$PORT" > "$ROOT/.dash-viewer.json" 2>/dev/null || true
   exec python3 "$ROOT/dashboard-server.py" "$PORT"
 fi
 
