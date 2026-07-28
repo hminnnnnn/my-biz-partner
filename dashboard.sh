@@ -22,16 +22,22 @@ if ! command -v python3 > /dev/null 2>&1; then
   exit 1
 fi
 
-if [ ! -f state/dashboard-data.js ]; then
-  echo "· 상태 파일이 아직 없어요. ./refresh-dashboard.sh 를 먼저 한 번 돌립니다."
-  ./refresh-dashboard.sh || true
+# 상태 파일이 없으면 한 번 만들어 둔다. (대시보드는 서버가 JSON 을 직접 읽지만,
+# 텔레그램 쪽 규약과 초기 상태 생성을 위해 스크립트는 계속 유지한다.)
+if [ ! -f state/status.json ]; then
+  ./refresh-dashboard.sh > /dev/null 2>&1 || true
 fi
 
 PORT="${1:-8787}"
-# 포트가 이미 쓰이면 다음 포트로 (최대 20번 시도)
-tries=0
-while [ "$tries" -lt 20 ]; do
-  if python3 - "$PORT" <<'PY' > /dev/null 2>&1
+
+# 포트가 이미 쓰이는 경우 — **조용히 다음 포트로 넘어가지 않는다.**
+# 실측 사고: 두 번 실행하면 8788·8789… 로 말없이 밀려서, 사용자는 옛 탭(죽은 주소)을 보며
+# "왜 안 바뀌지" 하게 된다. 이미 우리 대시보드가 떠 있으면 **그걸 다시 열어 주는 게** 맞다.
+probe() {   # 이 포트에 우리 대시보드가 이미 떠 있으면 0
+  curl -fsS --max-time 1 "http://127.0.0.1:$1/api/status" 2>/dev/null | grep -q '"mode"'
+}
+port_free() {
+  python3 - "$1" <<'PY' > /dev/null 2>&1
 import socket, sys
 s = socket.socket()
 try:
@@ -41,10 +47,31 @@ except OSError:
 finally:
     s.close()
 PY
-  then break; fi
-  PORT=$((PORT + 1))
-  tries=$((tries + 1))
-done
+}
+
+if ! port_free "$PORT"; then
+  if probe "$PORT"; then
+    echo ""
+    echo "  대시보드가 이미 켜져 있어요 (포트 $PORT). 새로 띄우지 않고 그 창을 엽니다."
+    echo ""
+    command -v open > /dev/null 2>&1 && open "http://127.0.0.1:$PORT/dashboard/index.html"
+    exit 0
+  fi
+  # 우리 것이 아닌 다른 프로그램이 쓰고 있다 — 밀려나되 **반드시 알린다**
+  ALT="$PORT"
+  tries=0
+  while [ "$tries" -lt 20 ] && ! port_free "$ALT"; do
+    ALT=$((ALT + 1)); tries=$((tries + 1))
+  done
+  if [ "$tries" -ge 20 ]; then
+    echo "✗ $PORT 부터 20개 포트가 전부 사용 중이에요. 다른 포트를 지정해 주세요:  ./dashboard.sh 9000"
+    exit 1
+  fi
+  echo ""
+  echo "  ⚠ 포트 $PORT 는 다른 프로그램이 쓰고 있어서 $ALT 로 엽니다."
+  echo "     (예전에 열어 둔 대시보드 탭이 있다면 그 탭은 더 이상 갱신되지 않습니다 — 새 창을 쓰세요.)"
+  PORT="$ALT"
+fi
 
 URL="http://127.0.0.1:$PORT/dashboard/index.html"
 

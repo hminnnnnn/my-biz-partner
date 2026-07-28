@@ -63,89 +63,79 @@
   화면 문구가 약속하는 기능은 반드시 스킬 명세(예: 채용 배너 ↔ project-team `staff-guide.md`)와
   짝이 있어야 한다. 판정 전에 최신 패킷·스킬 문서를 대조할 것(워킹트리 오판 사고 전력 — W16 §정정).
 
-## 3. 보존 계약 (제거·개명 금지 — e2e 스위트가 이 훅으로 검증한다)
+## 3. 보존 계약 (W23 재작성 — ADR-0008)
 
-- 탭: `#home #todos #project #team #kanban #records #auto` **7탭** (팀 탭은 W17 —
-  docs/11_팀탭_전달패키지.md 명세·대표 승인. 자동화 탭은 W22 — 대표 승인). IA 변경은 대표 승인 필요. **로스터(우리 팀)는 팀 탭 소관 — 프로젝트 탭에 되돌리지 않는다.**
-- 데이터 훅: `.todo-row` `.todo(.open)`(`.todo.open`·`[data-exp]` 는 홈 목록·칸반·아코디언 소관 —
-  할 일 탭은 W21 에서 '선택' 문법으로 바뀌었다) `[data-exp]` `[data-viewer]` `[data-copy]`
-  `[data-project-open]` `[data-project-back]` `[data-role]` `[data-ticket]` `[data-modal-backdrop]`
-  `#modal #modal-title #modal-body` `.role-card` `.proj-card` `.decide` `.staff-top` `.hire-note` `.team-summary`
-  `[data-rec-folder]`(폴더 토글 — 아코디언 단일 펼침. 클릭=열림 시 첫 파일 자동 선택·이미 열렸으면 접기)
-  `[data-rec-file]`(파일 선택 — 트리 파일행 `.rec-file-row` + 최근 항목 `.rec-recent-row` 공용, 리딩 페인 교체)
-  `.rec-nav-item`(폴더 토글 행) `.rec-file-row` `.rec-read`(인라인 리딩 페인 — 기록 탭 본문은 모달이 아니라
-  이 페인에 렌더한다: 대표 지시. 2단 구조 = `.rec-tree` 폴더 토글 트리(좌) + `.rec-read` 리딩 페인(주인공, 우))
-  `.rec-table`(표 뷰어) `.webview`(링크 웹뷰 — iframe sandbox 필수).
-- **W20 셸·시각화·필터 훅** (제거·개명 금지):
-  `#cmdk`·`#cmdk-input`·`#cmdk-list`·`[data-cmdk-run]`(⌘K 팔레트 — 닫힘 = `[hidden]`+`display:none!important`),
-  `.stale-note`(신선도 고지), `.main[data-tab]`+`--shell-max`(탭별 유동 폭), `#view-slot`(셸 1회 마운트 +
-  뷰 슬롯 교체 — 전체 재렌더로 되돌리지 말 것: 스크롤·포커스가 날아간다),
-  `[data-tf]`·`#todo-q`·`#todo-body`(할 일 필터·부분 교체), `[data-kf]`(칸반 필터),
-  `#rec-q`·`#rec-body`(기록 전문 검색), `[data-fold]`+`.fold-b`(접힘 섹션),
-  `[data-todo-jump]`(백링크·시간축 → 할 일 교차 이동), `[data-sort]`(표 정렬),
-  `[data-tip]`+`#viz-tip`(시각화 호버 툴팁 — 위임 1개), `[data-viz]`(차트 식별 훅: `due`·`act`·`phase`·`rec`),
-  `.mode-pill`(실행 모드 표시), `.bucket`(기한 버킷 — 완료는 이 안에 넣지 않는다).
-- **실행 모드 2종은 둘 다 유지한다**(STATE_CONTRACT ④): `file://` 파일 모드가 폴백이고,
-  `http://127.0.0.1` 서버 모드가 상태 파일을 직독한다. 서버는 **반드시 127.0.0.1 바인딩**
-  (`--bind` 없이 띄우면 같은 네트워크에 사업 데이터가 열린다).
-- **본문 접근은 `hasBody()`/`putBody()` 를 거친다** — `contentByPath[path]` 존재 여부로 판정하면
-  본문 없이 키만 있는 항목에서 지연 로드가 건너뛰어 뷰어가 폴백 문구만 띄운다(실측 결함).
-- **W21 훅** (제거·개명 금지):
-  `[data-inlink]`(본문 안 경로 → 리딩 페인. `'파일로 이동'` 앵커의 대체재 — 그 앵커는
-  한 번도 동작한 적이 없어 걷어냈다. **상대경로 href 로 되살리지 말 것**: 페이지가
-  `dashboard/index.html` 이라 `dashboard/notes/…` 로 풀려 404 다),
-  `.todo-split`·`.todo-queue`·`[data-todo-sel]`·`.q-row(.sel)`·`.todo-bench`·`.bench-title`·`.bench-why`
-  (할 일 큐 + 작업대 — 클릭은 '펼침' 이 아니라 '선택'),
-  `.story`·`.st-node`(프로젝트 진행 이야기), `.nextmove`(다음 한 수),
-  `[data-fold="proj-outs"]`(산출물 원본은 **접힘이 기본** — 주인공은 이야기다),
-  `[data-ask]`·`#runner`·`#runner-input`·`[data-runner-close|refresh|send]`(파트너 러너).
-- **W22 훅** (제거·개명 금지):
-  `.live-wrap`·`.live-card`·`[data-job-stop]`(팀 탭 맨 위 라이브 세션 — 5초 폴링. **라이브 블록만
-  부분 교체**한다: 전체 재렌더로 되돌리면 스크롤·포커스가 깨진다. 도는 게 없으면 **아무것도
-  그리지 않는다** — 빈 카드로 자리를 먹지 않게),
-  `[data-goto-live]`(백그라운드 전송 후 팀 탭으로 보내는 안내 버튼),
-  `.auto-card`·`[data-auto-toggle]`·`[data-auto-edit]`·`[data-auto-save]`·`.auto-why`·`.act-row`
-  (자동화 탭 — 주 조작은 **스위치 하나**. 조건 편집기 같은 걸 새로 만들지 말 것: 번잡함 경계),
-  `.auto-why`(**왜 있나** — 각 자동화의 근거를 화면에 함께 적는다. 근거 없는 자동화를 올리지 않는다).
-- **행동 버튼의 실행 경로는 두 갈래이고, 화면 문구가 그것과 일치해야 한다**(정직 규율):
-  · `ASKS[id].bg === true` → `POST /api/jobs`(백그라운드). **화면을 닫아도 계속 돈다.**
-  · `bg` 없음 → `POST /api/ask`(포그라운드 스트리밍). **창을 닫으면 멈춘다.**
-  라이브 카드의 "화면을 닫아도 계속 돌아가요" 는 **백그라운드 항목에만** 붙인다.
-  이 배선은 `tools/dashboard-e2e/run-api.sh` 가 실제 클릭으로 검사한다 — 끊으면 FAIL 난다.
-- **파트너 호출(브리지) 규약** — `dashboard-server.py`:
-  · 대시보드는 파일을 직접 쓰지 않는다. **에이전트에게 요청만** 보낸다(단일 작성자 유지).
-  · 보안은 다층이고 **하나도 빼지 않는다**: 127.0.0.1 바인딩 · Host 검증 · Origin 검증 ·
-    세션 토큰(커스텀 헤더) · 셸 미경유(argv) · `--dangerously-skip-permissions` 금지.
-  · 프롬프트는 `ASKS` 사전 한곳에 모은다. 각 항목에 기대는 스킬을 적어 명세와 대조할 수 있게 한다.
-  · 화면은 **보낸 말을 언제나 열어볼 수 있어야** 한다(모르는 말이 대신 나가지 않는다).
-  · 파트너는 되묻는다 — 러너에 이어가기 입력을 유지할 것(한 번 쏘고 끝나면 일이 안 끝난다).
-  · **엔드포인트**(W22 확장): `GET /api/status` `GET /api/sessions` `GET /api/automations`
-    `GET /api/activity` · `POST /api/ask`(스트리밍·이어가기) `POST /api/jobs`(`claude --bg`)
-    `POST /api/jobs/stop`(`claude stop`) `POST /api/automations`(설정 저장).
-  · **작업 큐는 새로 만들지 않는다** — Claude Code 의 백그라운드 에이전트 레지스트리를 그대로 쓴다
-    (`claude --bg` / `claude agents --json --all --cwd` / `claude stop`). `claude logs` 는 ANSI
-    터미널 덤프라 화면에 못 넣는다(실측) — **세션 전사 JSONL** 을 읽는다.
-  · **순차 실행**(대표 결정): 백그라운드가 이미 하나 돌고 있으면 429 로 거절하고 무엇이 도는지 알린다.
-    **`working` 만 큐를 막는다** — `blocked` 는 "답하고 더 기다리는 중"인 경우가 많아(실측)
-    그것까지 막으면 사용자가 갇힌다.
-  · 자동화 스케줄러는 **서버가 꺼져 있던 동안의 시각을 건너뛴다** — 노트북을 열자마자 밀린 알림이
-    쏟아지는 게 더 나쁘다. 안전장치: 출고 전부 꺼짐 · 동시 1건 · 하루 상한 · 연속 실패 3회 자동 정지.
-- **마크다운 렌더러 보존**: 인용구·문단 이어붙이기·목록 이어진 문장·`---`.
-  한 줄씩 `<p>` 로 끊는 방식으로 되돌리면 줄 넘어가는 `**굵게**` 가 별표째 노출된다(실측).
-- 동작: 변경 감지 갱신(`dataSig`/프로브 — 15초마다 데이터만 재확인, 바뀐 경우에만 갱신. 무조건
-  리로드로 되돌리지 말 것: 대표가 불편 피드백으로 걷어낸 방식), 모달 로직(자체 구현 유지),
-  **`.modal-backdrop[hidden]{display:none!important}`** (display:flex 가 [hidden]을 이겨 투명
-  클릭-삼킴 레이어가 되는 사고 전력), `.stagger` 등장(opacity:0→forwards — 헤드리스 캡처 시
-  최종 상태 강제 필요).
-- 데이터는 `../state/dashboard-data.js` 만 읽는다(file:// CORS 때문에 JS 래퍼 — STATE_CONTRACT ③).
+> **왜 다시 썼나.** 이 절은 원래 단일 파일 대시보드의 CSS 클래스·data 속성 70여 개를 열거해
+> "제거·개명 금지" 로 묶고 있었다. W23 에서 React 로 전면 재구축하면서 그 훅들은 전부 사라졌고,
+> 그 목록으로는 새 화면을 검증할 수 없다. **계약을 셀렉터가 아니라 "지켜야 하는 행동" 으로 바꾼다.**
+> 검증 주체도 바뀌었다 — DOM 히트테스트가 아니라 **실제 브라우저 조작**(`tools/dash-e2e/run.mjs`)이다.
+> 구 대시보드는 `skeleton/dashboard-legacy/` 에 롤백용으로 보존돼 있고, 구 스위트
+> (`tools/dashboard-e2e/run.sh`)는 그것만 검사한다.
 
-## 4. 작업 절차
+### 3-1. 코드 구조 (제거·개명 금지)
 
-1. `skeleton/dashboard/index.html` 수정 (gyeol.* 파일은 불변)
-2. `node -e "new Function(...)"` 문법 체크
-3. `tools/sync-demo-kits.sh` 로 키트 반영 (스위트·캡처는 키트를 읽는다 — 먼저 돌려야 한다)
-4. `tools/dashboard-e2e/run.sh` 세 키트 전항 PASS (P-A 63 · P-B 98 · P-C 95) +
-   `tools/dashboard-e2e/run-server.sh` 전항 PASS (101 + 92)
-5. 시각 변경 시 `tools/capture.sh` 로 라이트+다크 육안 (배경 애니메이션 함정 §3 참고)
-6. skeleton 레포 커밋·푸시
-7. 사용자에게 보여줄 땐 전/후 스크린샷 비교(`docs/work/W16_.../screenshots/uxpass-*` 선례)
+| 무엇 | 어디 | 왜 계약인가 |
+|---|---|---|
+| 소스는 `dashboard-app/`, **배포물만** `skeleton/dashboard/` | `vite.config.ts` `outDir` | 참가자 Mac 에 node·npm 이 필요 없어야 한다 |
+| `base: "./"` | `vite.config.ts` | 상대 경로여야 어느 진입 URL 에서도 자산이 산다. 절대 경로로 바꾸면 **루트 URL 에서 CSS 가 전부 404** 난다(실측 사고) |
+| GYEOL 토큰 → Tailwind 다리 | `src/index.css` `@theme inline` | 색 하드코딩 0 을 구조적으로 보장하는 유일한 장치 |
+| 프롬프트 사전 `ASKS` | `src/lib/asks.ts` | 파트너에게 보내는 말은 **한곳**에. 각 항목에 기대 스킬을 적어 명세와 대조한다 |
+| 기준일 단일 결정 `resolveBasis()` | `src/lib/utils.ts` → `App.tsx` 1회 | 탭마다 따로 계산하면 화면이 서로 다른 말을 한다(실측 결함) |
+| 타입 = 상태 계약 | `src/lib/types.ts` | `STATE_CONTRACT.md` 가 바뀌면 **이 파일이 먼저** 바뀐다 |
+
+### 3-2. 행동 계약 (깨지면 회귀가 FAIL 난다)
+
+1. **행동 버튼은 두 갈래이고, 화면 문구가 그것과 일치한다.**
+   `ASKS[x].bg === true` → `POST /api/jobs`(닫아도 계속) · 없으면 `POST /api/ask`(닫으면 멈춤).
+   → `run.mjs` 가 실제 버튼을 클릭해 요청 경로를 확인한다.
+2. **탭 전환·항목 선택 시 목록 DOM 을 재생성하지 않는다.**
+   → `run.mjs` 가 트리 노드에 표식을 남기고 클릭 후 살아남는지 본다. 문자열 재구축으로 되돌리면 FAIL.
+3. **화면 숫자는 원본 JSON 과 일치한다.** KPI·사이드바 배지 전부.
+   → `run.mjs` 가 `/api/state`·`/api/records` 로 직접 계산해 대조한다.
+4. **같은 화면에 같은 이름의 수치가 둘이면 결함.** 모집단·기간 지평선을 통일한다.
+   (실측: KPI '쌓인 기록 32' 옆 막대 합계 19 — 서버 `counts` 에 projects 누락이 원인이었다.)
+5. **에러는 빈 상태가 아니다.** 못 읽었으면 "못 읽었어요" 라고 쓴다.
+6. **개발팀 내부 용어를 화면에 내보내지 않는다.** (`UC-1`·`P-B`·`페르소나 N종`·`실주행`·`스켈레톤`·`래퍼`…)
+   → `run.mjs` 가 7탭 전문을 훑어 검사한다. 근거는 주석·패킷 문서에 남기고 화면은 참가자 언어로.
+7. **가격·비용 표현 0건** (유일 예외: Claude Max 요금제 요건 안내). → 회귀 상설 항목.
+8. **출고 자동화는 전부 꺼짐**이고, **켤 때 확인을 받는다.** 끄는 건 바로.
+9. **`status.json`·`team.json` 은 대시보드가 쓰지 않는다.** 쓰는 것은 `automations.json`·`activity.json` 둘뿐.
+   → 회귀가 조작 전후 `status.json` 을 대조한다.
+10. **진입 URL 4종**(`/` `/dashboard` `/dashboard/` `/dashboard/index.html`)에서 참조 자산이 전부 200.
+11. **콘솔 에러 0.**
+
+### 3-3. 접근성 계약
+
+- 키보드만으로 7탭 이동(`1`~`7`)·검색(`⌘K`/`/`)·모달 닫기(`ESC`)가 된다.
+  **모달·팔레트가 열려 있을 때 숫자 단축키는 발동하지 않는다**(WCAG 2.1.4).
+- 파트너 러너는 열릴 때 포커스를 받고, `ESC` 로 닫히고, 닫으면 원래 버튼으로 돌아간다.
+  스트리밍 출력에는 `aria-live="polite"`.
+- 시각화의 값은 **키보드로도 읽힌다** — native `title` 이 아니라 Radix Tooltip + `aria-label`.
+- 표 정렬은 `<th>` 안 `<button>` + `aria-sort`.
+- **`text-fg-disabled` 는 비활성 컨트롤에만.** 정보 텍스트에 쓰면 대비 2.2:1 로 미달한다.
+- `prefers-reduced-motion` 을 앱 층에서도 존중한다(토큰 층만으로는 Tailwind 유틸이 안 꺼진다).
+- 한국어는 `word-break: keep-all` — 낱말이 쪼개지면 안 된다.
+
+### 3-4. 검증 방법
+
+```bash
+tools/verify-dashboard.sh              # ★ 타입·빌드·동기화·실증 3키트·브리지 API 를 한 번에
+node tools/dash-e2e/run.mjs --all      # 실증 스위트만
+node tools/dash-e2e/shots.mjs /tmp/s   # 라이트/다크 × 7탭 캡처 (시각 변경 시 육안)
+```
+
+**DOM 존재만으로 통과시키지 않는다.** 숫자는 원본과 대조하고, 상호작용은 실제로 클릭한다.
+
+## 4. 작업 절차 (W23 — React 재구축 이후)
+
+1. **소스는 루트 레포의 `dashboard-app/src/`** 를 수정한다. `skeleton/dashboard/` 는 빌드
+   산출물이라 손대지 않는다 (직접 고치면 다음 빌드가 덮어쓴다).
+2. `tools/verify-dashboard.sh` **하나로 끝낸다** — 타입 검사 → 빌드(→ skeleton/dashboard/) →
+   키트 동기화 → 실증 스위트 3키트 → 브리지 API → **고아 검사**(테스트가 흘린 프로세스 0 강제)
+   를 순서대로 전부 돌린다. 손으로 쪼개 돌리면 빠뜨린다.
+3. 시각 변경 시 `node tools/dash-e2e/shots.mjs <저장폴더> <키트>` 로 라이트+다크 × 7탭 육안.
+4. skeleton 레포 커밋·푸시 (게이트 전항 PASS 상태에서만).
+5. 사용자에게 보여줄 땐 전/후 스크린샷 비교(`docs/work/W16_.../screenshots/uxpass-*` 선례).
+
+> 구 대시보드(`dashboard-legacy/`)를 만질 일이 있으면 그때만 구 스위트
+> (`tools/dashboard-e2e/run.sh`)를 쓴다 — 롤백 경로 검증 용도로만 남아 있다.
