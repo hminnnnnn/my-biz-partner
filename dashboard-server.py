@@ -18,6 +18,7 @@
   · --dangerously-skip-permissions 미사용 → .claude/settings.json 의 권한 선언을 그대로 따른다
                                      (Edit(../**) 거부 = 이 폴더 밖은 못 고침)
 """
+import collections
 import datetime
 import http.server
 import json
@@ -40,8 +41,15 @@ ALLOWED_ORIGINS = {"http://127.0.0.1:%d" % PORT, "http://localhost:%d" % PORT}
 MAX_PROMPT = 8000          # 프롬프트 길이 상한 (사고 방지)
 TIMEOUT_SEC = 300          # 한 번의 호출 상한 5분
 MAX_CONCURRENT = 2         # 동시 실행 상한 — 구독 사용량이 폭주하지 않게
+BG_CONCURRENT = 2          # 동시에 도는 백그라운드 작업 상한 — 구독 사용량 통제(대표 조정 지점)
 
 _running = threading.Semaphore(MAX_CONCURRENT)
+
+# 대기열 — **메모리에만** 있다. 서버(터미널)를 끄면 대기 중인 것은 사라진다.
+# 화면 문구도 "서버가 켜져 있는 동안" 을 반드시 함께 말한다(정직 고지).
+_job_queue = collections.deque()
+_queue_lock = threading.Lock()
+_qid_jobs = {}             # qid → jobId. 큐를 떠난 뒤에도 '그만두기' 가 이어지도록
 
 
 def claude_available():
@@ -438,6 +446,103 @@ def _run_automation(it):
                       "state": "failed", "summary": str(e)[:200]})
 
 
+# ============================================================
+# 작업 대기열 (W25) — 막지 말고 받아 둔다
+# ------------------------------------------------------------
+# 전에는 이미 도는 작업이 있으면 429 로 돌려보냈다. 대표 피드백: 그러면 사용자가
+# 기억했다가 다시 눌러야 한다. 이제는 **접수하고 순서대로 시작**한다.
+# 상한(BG_CONCURRENT)은 남긴다 — 무제한으로 띄우면 구독 사용량을 통제할 수 없다.
+# ============================================================
+_pending_starts = {}       # jobId → 보낸 시각
+
+
+def _bg_working():
+    """지금 슬롯을 차지한 백그라운드 작업 수.
+
+    `blocked` 는 세지 않는다 — 답을 기다리는 세션이 큐를 영원히 막으면 사용자가 갇힌다
+    (W22 실측 결함: 이미 답을 낸 세션이 blocked 로 남아 있었다).
+    방금 보낸 작업은 세션 목록에 아직 안 뜬다 — 그동안 안 세면 상한을 넘겨 띄우게 되므로
+    목록에 나타나거나 20초가 지날 때까지 차지한 것으로 센다.
+    """
+    live = list_sessions()
+    ids = {s.get("id") for s in live}
+    n = sum(1 for s in live
+            if s.get("kind") == "background" and s.get("state") == "working")
+    now = time.time()
+    for jid, at in list(_pending_starts.items()):
+        if jid in ids or now - at > 20:
+            _pending_starts.pop(jid, None)
+        else:
+            n += 1
+    return n
+
+
+def _launch_bg(prompt):
+    """`claude --bg` 로 보내고 (작업 id, 원문) 을 돌려준다. id 를 못 읽으면 (None, 원문)."""
+    try:
+        p = subprocess.run(["claude", "--bg", prompt], cwd=ROOT,
+                           capture_output=True, text=True, timeout=60)
+    except Exception as e:
+        return None, str(e)[:300]
+    # 출력 예: "backgrounded · 8fa7b75e"
+    m = re.search(r"backgrounded\s*[·|]?\s*(?:\x1b\[[0-9;]*m)?([0-9a-f]{6,})", p.stdout or "")
+    _sessions_cache["data"] = None          # 새 작업이 바로 목록에 뜨도록 캐시를 버린다
+    if m:
+        _pending_starts[m.group(1)] = time.time()
+    return (m.group(1) if m else None), (p.stdout or p.stderr or "")[:300]
+
+
+def queued_view():
+    """대기열 화면용. 이미 출발한 항목은 position 0 + jobId 로 보이다가, 라이브 카드에 뜨면 빠진다."""
+    out, pos = [], 0
+    with _queue_lock:
+        for it in _job_queue:
+            started = bool(it.get("jobId"))
+            if not started:
+                pos += 1
+            out.append({"qid": it["qid"], "title": it["title"],
+                        "position": 0 if started else pos, "jobId": it.get("jobId")})
+    return out
+
+
+def _queue_pump():
+    """2초마다 슬롯을 보고 대기열 앞에서 하나씩 내보낸다."""
+    while not _sched_stop.wait(2):
+        try:
+            with _queue_lock:
+                idle = not _job_queue
+            if idle:
+                continue                # 대기열이 비면 세션 조회조차 하지 않는다(불필요한 프로세스 금지)
+            busy = _bg_working()        # 여기서 warm-up 목록도 함께 정리된다
+            with _queue_lock:
+                # 출발한 항목은 **라이브 카드로 넘어갈 때까지** 남겨 둔다 — 화면 갱신(5초)보다
+                # 먼저 지우면 사용자 눈에는 일이 사라진 것으로 보인다.
+                while (_job_queue and _job_queue[0].get("jobId")
+                       and _job_queue[0]["jobId"] not in _pending_starts):
+                    _job_queue.popleft()
+                pending = next((it for it in _job_queue if not it.get("jobId")), None)
+            if pending is None or busy >= BG_CONCURRENT:
+                continue
+            job_id, raw = _launch_bg(pending["prompt"])
+            with _queue_lock:
+                if job_id:
+                    pending["jobId"] = job_id
+                    _qid_jobs[pending["qid"]] = job_id
+                    if len(_qid_jobs) > 50:         # 오래된 것부터 버린다(메모리 상한)
+                        for k in list(_qid_jobs)[:-50]:
+                            _qid_jobs.pop(k, None)
+                else:
+                    try:
+                        _job_queue.remove(pending)  # 못 보낸 것은 버린다 — 무한 재시도 금지
+                    except ValueError:
+                        pass
+            log_activity({"kind": "request", "title": pending["title"],
+                          "state": "started" if job_id else "failed",
+                          "jobId": job_id, "summary": "" if job_id else raw[:200]})
+        except Exception as e:
+            sys.stderr.write("  [대기열] 오류: %s\n" % e)
+
+
 # ═══════════════════════════════════════════════════════════════════
 #  기록 스캔 — 파일 모드를 폐지하면서 래퍼(dashboard-data.js) 의존을 끊는다.
 #
@@ -777,7 +882,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             ok, why = self._origin_ok()
             if not ok:
                 return self._json(403, {"error": why})
-            return self._json(200, {"sessions": list_sessions()})
+            return self._json(200, {"sessions": list_sessions(), "queued": queued_view()})
         if path == "/api/status":
             ok, why = self._origin_ok()
             if not ok:
@@ -928,6 +1033,28 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         except Exception:
             return self._json(400, {"error": "본문을 읽을 수 없습니다"})
         jid = str(payload.get("id") or "")
+        # 대기열 항목은 `qid` 로 온다 — 아직 안 나간 것은 목록에서 빼면 끝이다(멈출 프로세스가 없다).
+        qid = str(payload.get("qid") or "")
+        key = qid or jid
+        if not re.fullmatch(r"[0-9a-fA-F-]{4,40}", key):
+            return self._json(400, {"error": "작업 id 가 올바르지 않습니다"})
+        cancelled = False
+        with _queue_lock:
+            for it in list(_job_queue):
+                if it.get("qid") != key:
+                    continue
+                if it.get("jobId"):
+                    jid = it["jobId"]           # 이미 출발했으면 아래에서 그 작업을 멈춘다
+                else:
+                    _job_queue.remove(it)
+                    cancelled = True
+                break
+            else:
+                jid = _qid_jobs.get(key, jid)   # 큐를 떠난 뒤에 눌러도 이어지도록
+        if cancelled:
+            log_activity({"kind": "request", "title": "대기 취소 (%s)" % key,
+                          "state": "done", "summary": "사용자가 대기열에서 뺐어요"})
+            return self._json(200, {"ok": True, "cancelled": "queued"})
         if not re.fullmatch(r"[0-9a-fA-F-]{4,40}", jid):
             return self._json(400, {"error": "작업 id 가 올바르지 않습니다"})
         try:
@@ -963,41 +1090,29 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         if not claude_available():
             return self._json(503, {"error": "claude 명령을 찾을 수 없어요."})
 
-        # 순차 실행(대표 결정): 이미 도는 백그라운드 작업이 있으면 새로 보내지 않는다.
-        # 사용량이 예측 가능하고 같은 파일을 동시에 고쳐 충돌하는 일이 없다.
-        # **working 만 큐를 막는다.** blocked 는 "답하고 더 기다리는 중" 인 경우가 많아서
-        # (실측: 이미 정답을 낸 세션이 blocked 로 남아 있었다) 그것까지 막으면 사용자가 갇힌다.
-        for s in list_sessions():
-            if s.get("kind") == "background" and s.get("state") == "working":
-                hint = ""
-                if s.get("state") == "blocked" and not workspace_trusted():
-                    hint = ("이 폴더가 아직 Claude Code 신뢰 승인 전이라 권한 물음에서 멈춰 있어요. "
-                            "그만두기를 누르고, 이 폴더에서 claude 를 한 번 실행해 신뢰를 수락해 주세요.")
-                elif s.get("state") == "blocked":
-                    hint = "그 작업이 답을 기다리고 있어요. 답해 주거나 그만두기를 누르세요."
-                return self._json(429, {
-                    "error": "이미 진행 중인 작업이 있어요",
-                    "hint": hint,
-                    "running": {"id": s.get("id"), "name": s.get("name"), "state": s.get("state")},
-                })
-        try:
-            p = subprocess.run(
-                ["claude", "--bg", prompt],
-                cwd=ROOT, capture_output=True, text=True, timeout=60,
-            )
-        except Exception as e:
-            return self._json(500, {"error": "작업을 보내지 못했어요: %s" % e})
-        # 출력 예: "backgrounded · 8fa7b75e"
-        m = re.search(r"backgrounded\s*[·|]?\s*(?:\x1b\[[0-9;]*m)?([0-9a-f]{6,})", p.stdout or "")
-        job_id = m.group(1) if m else None
-        _sessions_cache["data"] = None          # 새 작업이 바로 목록에 뜨도록 캐시를 버린다
+        # 검증을 통과하면 **무조건 접수**한다(W25 — 이전의 429 를 대체).
+        # 슬롯이 비면 지금 보내고, 차 있으면 대기열에 넣는다. 순서는 들어온 순서.
+        title = prompt.split("\n")[0][:60]
+        with _queue_lock:
+            waiting = any(not it.get("jobId") for it in _job_queue)
+        if waiting or _bg_working() >= BG_CONCURRENT:
+            qid = uuid.uuid4().hex[:8]
+            with _queue_lock:
+                _job_queue.append({"qid": qid, "prompt": prompt, "title": title})
+                position = sum(1 for it in _job_queue if not it.get("jobId"))
+            return self._json(200, {
+                "queued": True, "qid": qid, "position": position,
+                # 대기열은 메모리에만 있다 — 이 전제를 응답에도 담는다(화면 문구와 같은 말)
+                "note": "이 서버(터미널)가 켜져 있는 동안 순서대로 시작돼요.",
+            })
+
+        job_id, raw = _launch_bg(prompt)
         if not job_id:
-            log_activity({"kind": "request", "title": prompt.split("\n")[0][:60],
-                          "state": "failed", "summary": (p.stdout or p.stderr or "")[:200]})
-            return self._json(500, {"error": "작업 id 를 확인하지 못했어요",
-                                    "raw": (p.stdout or p.stderr or "")[:300]})
+            log_activity({"kind": "request", "title": title,
+                          "state": "failed", "summary": raw[:200]})
+            return self._json(500, {"error": "작업 id 를 확인하지 못했어요", "raw": raw})
         # 요청형도 내역에 남긴다 — "파트너가 어떻게 움직이는지" 는 자율형만의 이야기가 아니다
-        log_activity({"kind": "request", "title": prompt.split("\n")[0][:60],
+        log_activity({"kind": "request", "title": title,
                       "state": "started", "jobId": job_id})
         return self._json(200, {"id": job_id})
 
@@ -1091,6 +1206,8 @@ def main():
         print("")
         t = threading.Thread(target=_scheduler_loop, daemon=True)
         t.start()
+        # 대기열은 이 서버가 살아 있는 동안만 존재한다 — 끄면 대기 중인 것은 사라진다
+        threading.Thread(target=_queue_pump, daemon=True).start()
         try:
             httpd.serve_forever()
         except KeyboardInterrupt:
