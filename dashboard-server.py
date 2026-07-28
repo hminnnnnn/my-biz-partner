@@ -477,7 +477,17 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 "trusted": workspace_trusted(),
                 "root": ROOT,
             })
-        if path in ("/dashboard/index.html", "/dashboard/", "/"):
+        # 루트로 들어오면 **리다이렉트**한다 — 여기서 index.html 을 그대로 내주면
+        # 상대 경로 자산(gyeol.tokens.css · gyeol.components.css · gyeol.js)이
+        # `/gyeol.*` 로 풀려 전부 404 가 되고 **스타일 없는 화면**이 뜬다(실측 결함).
+        # 주소창에 127.0.0.1:포트 만 치는 건 아주 흔한 행동이라 반드시 살려야 한다.
+        if path in ("/", "/dashboard", "/dashboard/"):
+            self.send_response(302)
+            self.send_header("Location", "/dashboard/index.html")
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+            return
+        if path == "/dashboard/index.html":
             return self._serve_index()
         return super().do_GET()
 
