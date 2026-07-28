@@ -14,8 +14,14 @@
 state/
 ├── status.json         메인 에이전트 상태 (에이전트가 씀)
 ├── team.json           프로젝트 팀 진행현황 (project-team 스킬이 씀)
-└── dashboard-data.js   위 둘을 래핑한 JS 파일 (대시보드가 읽는 유일한 파일)
+├── dashboard-data.js   위 둘을 래핑한 JS 파일 (파일 모드에서 대시보드가 읽는 유일한 파일)
+├── automations.json    자동화 설정 (W22 — **대시보드/브리지가 씀**. 아래 ⑥)
+└── activity.json       파트너 활동 내역 (W22 — **브리지가 씀**. 아래 ⑥)
 ```
+
+> `automations.json`·`activity.json` 은 **사업 상태가 아니라 사용자 환경 설정·실행 기록**이라
+> 예외적으로 대시보드(브리지)가 쓴다. `status.json`·`team.json` 은 **여전히 에이전트만** 쓴다 —
+> 이 경계를 넘지 않는다. (`run-api.sh` 가 자동화를 저장한 뒤 `status.json` 이 그대로인지 검사한다.)
 
 ## ② 형식
 
@@ -34,7 +40,8 @@ state/
   - `records` 와 todos overdue 판정은 `refresh-dashboard.sh` 가 계산해 넣는 **파생값**이다.
   - `records.recent[]`·`records.projects[]` 항목에는 **`content`**(파일 내용, 파일당 16KB 상한 —
     초과분은 잘라내고 안내 문구)가 additive로 포함된다. 대시보드 내장 마크다운 뷰어가 이 값을
-    렌더한다("파일로 이동"은 file:// 링크로 원본 열람).
+    렌더한다. (W21 이전에 있던 "파일로 이동" 앵커는 한 번도 동작하지 않아 걷어냈다 —
+    본문 안 경로를 누르면 리딩 페인에서 이어 읽는다.)
   - 스캔 대상 확장자는 `.md` + 표 형식 `.csv`·`.xlsx`(첫 시트, 200행×24열 상한 — python 표준
     라이브러리 파싱, 실패 시 항목 유지·내용 생략). 표 파일의 contents 항목은 `content` 대신
     **`table`**(2차원 배열)을 갖고, 대시보드 뷰어가 표로 렌더한다.
@@ -61,6 +68,8 @@ state/
 | `team.json.activeProject.{health,progress,outputs}` | **project-team 스킬** | health: 팀 구성 시 `"순항"`, 단계 전환·리스크 시 재평가 / progress: 단계 전환마다(단계 파생) / outputs: 산출물 저장 시마다 추가 |
 | `team.json.staff[]` | **project-team 스킬** | 채용 시 생성(`staff-guide.md` 규약), 대표의 변경 지시 시 수정. 프로젝트 종료와 무관하게 유지(재직) |
 | `dashboard-data.js` (`status`·`team` 래핑) | 위 JSON을 바꾼 쪽 | **JSON을 갱신할 때마다 반드시 함께 재생성** |
+| `automations.json` | **대시보드(브리지)** — 예외 | 사용자가 자동화를 켜거나 시각·문구를 바꿀 때 (`POST /api/automations`) |
+| `activity.json` | **브리지** — 예외 | 자동화가 돌 때, 그리고 화면에서 일을 시킬 때(요청형도 남긴다 — "파트너가 어떻게 움직이는지"는 자율형만의 이야기가 아니다) |
 | `dashboard-data.js` 파생 (`records`, todos overdue 재계산) | **`refresh-dashboard.sh`** | 래핑할 때마다 자동 — `notes/` 스캔 결과와 overdue 판정을 주입(파생, 원본 JSON은 불변) |
 
 > **철칙:** `status.json` 또는 `team.json` 을 바꾸면 **같은 동작 안에서 `./refresh-dashboard.sh`
@@ -109,6 +118,79 @@ install.sh 도 마지막 단계에서 같은 스크립트를 호출한다.
   파일을 바꾸지 못한다(물어보기만 한다).
 - 상태를 바꾼 뒤 `./refresh-dashboard.sh` 실행은 여전히 의무다. 그래서 그 명령이
   `.claude/settings.json` 의 allow 목록에 있어야 한다(없으면 매번 승인 프롬프트에 막힌다 — 실측 결함으로 교정).
+
+### 백그라운드 작업과 라이브 세션 (W22)
+
+화면의 행동 버튼은 **두 갈래**로 갈린다. 어느 쪽이든 파일을 쓰는 건 에이전트다.
+
+| 갈래 | 언제 | 엔드포인트 | 수명 |
+|---|---|---|---|
+| **즉답** | 바로 읽고 싶은 것 (답장 초안·지난 맥락 찾기) | `POST /api/ask` → `claude -p` 스트리밍 | **창을 닫으면 멈춘다** |
+| **맡김** | 상태를 바꾸거나 오래 걸리는 것 (완료 처리·내일로·다음 단계·여기까지 정리) | `POST /api/jobs` → `claude --bg` | **화면을 닫아도 계속 돈다** |
+
+- 작업 큐를 새로 만들지 않는다 — Claude Code 의 백그라운드 에이전트 레지스트리를 그대로 쓴다
+  (`claude --bg` / `claude agents --json --all --cwd` / `claude stop`).
+- **순차 실행**: 백그라운드가 하나 도는 중이면 새 요청을 429 로 거절하고 무엇이 도는지 알린다.
+  `working` 만 큐를 막는다(`blocked` 는 답하고 더 기다리는 상태인 경우가 많다 — 실측).
+- 라이브 상태·결과는 **세션 전사 JSONL** 에서 읽는다. `claude logs` 는 ANSI 터미널 덤프라 쓰지 않는다.
+- 화면 문구는 이 표와 일치해야 한다. "화면을 닫아도 계속 돌아가요" 를 즉답 경로에 붙이면 거짓말이 된다.
+
+---
+
+## ⑥ 자동화 (W22)
+
+`state/automations.json` — 사용자가 켠 자동화. **출고 시 전부 꺼져 있다.**
+읽을 때 출고 템플릿 중 빠진 항목을 **꺼진 상태로** 채워 넣으므로, 파일이 없어도 목록은 완전하다.
+
+```jsonc
+{
+  "schemaVersion": 1,
+  "updatedAt": "2026-07-28T10:12:03+09:00",
+  "items": [
+    {
+      "id": "morning-brief",        // 고정 식별자 (출고 4종: reminder-due · morning-brief
+                                    //              · open-issues · weekly-wrap)
+      "name": "아침 브리핑",
+      "why": "페르소나 3종 실주행에서 모두 UC-1 로 등장 · 평가 최고 가치",
+                                    // **왜 있나** — 근거. 화면에 그대로 보여준다.
+                                    // 근거를 못 대는 자동화는 올리지 않는다(창작 금지).
+      "skill": "daily-briefing",    // 어떤 스킬을 기대하는지 (명세와 대조용)
+      "trigger": { "kind": "daily", "at": "08:00" },
+                                    // kind: "daily" | "weekly"(+ "day": 1=월)
+      "prompt": "…",                // 파트너에게 보낼 말 (사용자가 고칠 수 있다)
+      "deliver": "notify" | "note" | "both",
+      "enabled": false,             // 출고 기본값 — 켜는 건 사용자
+      "lastRun": null,              // { at, ok, error? }
+      "failStreak": 0,              // 연속 실패 3회면 자동 정지
+      "runsToday": 0, "runsDate": null   // 하루 상한
+    }
+  ]
+}
+```
+
+`state/activity.json` — 파트너가 실제로 한 일 (최근 300건 보관, 화면에는 최근 80건 역순).
+
+```jsonc
+{
+  "schemaVersion": 1,
+  "updatedAt": "…",
+  "items": [
+    {
+      "at": "2026-07-28T08:30:04+09:00",
+      "kind": "auto" | "request",     // 자율형 / 내가 시킨 것 — 화면에서 배지로 구분
+      "title": "아침 브리핑",
+      "why": "…",
+      "state": "started" | "done" | "blocked" | "failed" | "skipped",
+      "jobId": "…",                   // 결말을 나중에 메꾸기 위한 연결고리
+      "summary": "…"                  // 완료 시 답변 앞부분(160자)
+    }
+  ]
+}
+```
+
+- 스케줄러는 **서버가 꺼져 있던 동안의 시각을 건너뛴다**(밀린 알림이 쏟아지지 않게).
+- 안전장치: 동시 1건 · 하루 상한 · **연속 실패 3회면 자동 정지**하고 화면에 그 사실을 표시한다.
+- `running` 항목은 조회 시점에 세션 상태로 결말을 메꾼다 — **값을 지어내지 않는다.**
 
 ---
 

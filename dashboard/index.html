@@ -3273,7 +3273,8 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
         (act.length ? '<span class="live-pill">' + act.length + '건 진행 중</span>' : '<span class="count">· 최근</span>') +
       '</h2>' +
       '<div class="live-wrap">' + show.map(liveCardHTML).join("") + '</div>' +
-      '<div class="heat-sum">화면을 닫아도 계속 돌아가요 — 다시 열면 여기에 결과가 있어요.</div>' +
+      '<div class="heat-sum">여기 있는 <b>백그라운드 작업</b>은 화면을 닫아도 계속 돌아가요 — 다시 열면 결과가 있어요. ' +
+      '(스트리밍으로 바로 답하는 요청은 창을 닫으면 멈춥니다.)</div>' +
     '</section>';
   }
 
@@ -4344,6 +4345,38 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
     replyToPartner(v);
   }
 
+  // 백그라운드로 보내기 — 세션 주인이 Claude Code 라서 화면을 닫아도 살아남는다.
+  function dispatchJob(title, prompt) {
+    if (!partnerReady()) { fallbackCopy(title, prompt); return; }
+    runnerOpen(title, prompt);
+    runnerWrite("백그라운드로 보내는 중…\n");
+    fetch("/api/jobs", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Dashboard-Token": BRIDGE.token },
+      body: JSON.stringify({ prompt: prompt })
+    }).then(function (res) {
+      return res.json().then(function (j) { return { ok: res.ok, j: j }; });
+    }).then(function (r) {
+      if (!r.ok) {
+        runnerWrite("\n" + (r.j.error || "보내지 못했어요") + "\n" +
+          (r.j.hint ? r.j.hint + "\n" : "") +
+          (r.j.running ? "진행 중: " + (r.j.running.name || "") + "\n" : ""));
+        runnerFinish("fail", false);
+        return;
+      }
+      runnerWrite("\n보냈어요. 이제 화면을 닫아도 계속 진행돼요.\n" +
+                  "진행 상황은 팀 탭의 ‘지금 하는 일’ 에서 볼 수 있어요.\n");
+      runnerEl.className = "runner done";
+      runnerFoot.innerHTML =
+        '<button class="g-btn g-btn--soft g-btn--sm" type="button" data-goto-live>진행 보기</button>' +
+        '<button class="g-btn g-btn--secondary g-btn--sm" type="button" data-runner-close>닫기</button>';
+      fetchSessions();
+    }).catch(function (e) {
+      runnerWrite("\n[실패] " + e + "\n");
+      runnerFinish("fail", false);
+    });
+  }
+
   // 브리지가 없을 때(file:// 더블클릭) — 같은 말을 복사해 텔레그램에 붙이면 결과는 같다.
   function fallbackCopy(title, prompt) {
     if (!runnerEl) runnerInit();
@@ -4390,6 +4423,7 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
       }
     },
     "todo.done": {
+      bg: true,
       skill: "reminder · issue-tracker",
       title: function (t) { return "완료 처리 — " + t.title; },
       prompt: function (t) {
@@ -4403,6 +4437,7 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
       }
     },
     "todo.defer": {
+      bg: true,
       skill: "reminder",
       title: function (t) { return "기한 미루기 — " + t.title; },
       prompt: function (t) {
@@ -4415,6 +4450,7 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
       }
     },
     "project.next": {
+      bg: true,
       skill: "project-team",
       title: function (p) { return "다음 단계 진행 — " + p.goal; },
       prompt: function (p) {
@@ -4427,6 +4463,7 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
       }
     },
     "project.digest": {
+      bg: true,
       skill: "project-team · recall",
       title: function (p) { return "여기까지 정리 — " + p.goal; },
       prompt: function (p) {
@@ -4462,7 +4499,10 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
       if (!ctx) { toast("그 프로젝트를 찾지 못했어요"); return; }
     }
     if (!ctx) return;
-    askPartner(spec.title(ctx), spec.prompt(ctx));
+    // 상태를 바꾸거나 오래 걸리는 일은 **백그라운드**로 보낸다 — 화면을 닫아도 계속 살아야 하니까.
+    // 바로 읽고 싶은 것(초안·회상)은 포그라운드 스트리밍이 낫다.
+    if (spec.bg) dispatchJob(spec.title(ctx), spec.prompt(ctx));
+    else askPartner(spec.title(ctx), spec.prompt(ctx));
   }
 
   // 내부 링크 열기 — 기록 탭 리딩 페인으로 보낸다(모달이 아니라 위키처럼 그 자리에서 이어 읽기).
@@ -4898,6 +4938,7 @@ try { if (typeof G !== "undefined") { G.setBrand("#0f766e"); G.prefs(); } } catc
     if (target.closest("[data-runner-close]")) { runnerClose(); return; }
     if (target.closest("[data-runner-refresh]")) { runnerClose(); location.reload(); return; }
     if (target.closest("[data-runner-send]")) { runnerSend(); return; }
+    if (target.closest("[data-goto-live]")) { runnerClose(); location.hash = "#team"; return; }
     var jstop = target.closest("[data-job-stop]");
     if (jstop) {
       var jid = jstop.getAttribute("data-job-stop");
