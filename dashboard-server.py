@@ -795,6 +795,273 @@ def read_roster():
     return out
 
 
+# ============================================================
+# 캘린더 (W26) — 홈의 '전체 일정'
+# ------------------------------------------------------------
+# 소스 우선순위:
+#   1) state/calendar.json 의 icsUrl (구글 캘린더 '비밀 주소(iCal)' — OAuth 불필요.
+#      이 파일은 **에이전트(setup-calendar 스킬)가 쓴다** — 대시보드 쓰기 경계 밖)
+#   2) notes/calendar-fallback.md (수기 일정 — 있는 그대로 보여준다. 형식을 추측해
+#      구조화하지 않는다: 지어낸 일정이 빈 화면보다 나쁘다)
+# ICS 반복 일정(RRULE)은 DAILY·WEEKLY 만 창 안에서 전개한다. MONTHLY·YEARLY 는
+# 시작 회차만 표시한다(전개 규칙이 복잡해 틀린 날짜를 만들 수 있다 — 덜 보여주는 쪽 선택).
+# ============================================================
+CALENDAR_CFG = os.path.join(ROOT, "state", "calendar.json")
+CAL_FALLBACK = os.path.join(ROOT, "notes", "calendar-fallback.md")
+_ics_cache = {"url": None, "at": 0.0, "text": None, "error": None}
+ICS_TTL = 600                    # 10분 캐시 — 홈 폴링마다 원격을 두드리지 않는다
+ICS_MAX_BYTES = 2 * 1024 * 1024
+CAL_WINDOW_DAYS = 28
+
+
+def _fetch_ics(url):
+    now = time.time()
+    if _ics_cache["url"] == url and now - _ics_cache["at"] < ICS_TTL:
+        return _ics_cache["text"], _ics_cache["error"]
+    text, err = None, None
+    try:
+        import urllib.request
+        req = urllib.request.Request(url, headers={"User-Agent": "my-biz-partner-dashboard"})
+        with urllib.request.urlopen(req, timeout=8) as r:
+            text = r.read(ICS_MAX_BYTES).decode("utf-8", errors="replace")
+    except Exception as e:
+        err = str(e)[:200]
+    _ics_cache.update({"url": url, "at": now, "text": text, "error": err})
+    return text, err
+
+
+def _ics_unfold(text):
+    """ICS 는 75바이트에서 줄을 접는다 — 이어지는 줄(공백 시작)을 붙여서 편다."""
+    out = []
+    for raw in text.replace("\r\n", "\n").replace("\r", "\n").split("\n"):
+        if raw.startswith((" ", "\t")) and out:
+            out[-1] += raw[1:]
+        else:
+            out.append(raw)
+    return out
+
+
+def _ics_dt(val):
+    """DTSTART 값 → (date, time|None). Z(UTC)는 로컬로 바꾼다. TZID 는 로컬로 근사한다."""
+    val = (val or "").strip()
+    m = re.match(r"^(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2})(\d{2})?(Z?))?$", val)
+    if not m:
+        return None, None
+    y, mo, d = int(m.group(1)), int(m.group(2)), int(m.group(3))
+    if not m.group(4):
+        return datetime.date(y, mo, d), None
+    hh, mm = int(m.group(4)), int(m.group(5))
+    dt = datetime.datetime(y, mo, d, hh, mm)
+    if m.group(7) == "Z":
+        dt = dt.replace(tzinfo=datetime.timezone.utc).astimezone()
+        return dt.date(), "%02d:%02d" % (dt.hour, dt.minute)
+    return dt.date(), "%02d:%02d" % (hh, mm)
+
+
+def _rrule_parts(line):
+    out = {}
+    for piece in line.split(";"):
+        if "=" in piece:
+            k, v = piece.split("=", 1)
+            out[k.upper()] = v
+    return out
+
+
+_BYDAY_IDX = {"MO": 0, "TU": 1, "WE": 2, "TH": 3, "FR": 4, "SA": 5, "SU": 6}
+
+
+def parse_ics_events(text, start, end):
+    """VEVENT 목록 → [{date, time, title}] (창 [start, end] 안만).
+
+    RECURRENCE-ID(개별 회차 수정)와 EXDATE(회차 취소)를 존중한다 —
+    안 하면 옮긴 미팅이 두 번 나온다.
+    """
+    events = []            # (uid, date, time, title, is_override)
+    overrides = set()      # (uid, date) — 개별 수정 회차가 원 회차를 대체
+    cur = None
+    for line in _ics_unfold(text):
+        u = line.upper()
+        if u == "BEGIN:VEVENT":
+            cur = {"exdates": set()}
+            continue
+        if cur is None:
+            continue
+        if u == "END:VEVENT":
+            uid = cur.get("uid") or ""
+            title = (cur.get("summary") or "(제목 없음)").strip()[:120]
+            d0, t0 = cur.get("dtstart", (None, None))
+            if d0 is not None:
+                rec_id = cur.get("recurrence_id")
+                if rec_id:
+                    overrides.add((uid, rec_id))
+                    if start <= d0 <= end:
+                        events.append((uid, d0, t0, title, True))
+                else:
+                    rr = cur.get("rrule")
+                    occs = [d0]
+                    if rr:
+                        occs = _expand_rrule(d0, rr, start, end)
+                    for od in occs:
+                        if start <= od <= end and od.isoformat() not in cur["exdates"]:
+                            events.append((uid, od, t0, title, False))
+            cur = None
+            continue
+        key, _, val = line.partition(":")
+        base = key.split(";", 1)[0].upper()
+        if base == "SUMMARY":
+            cur["summary"] = val
+        elif base == "UID":
+            cur["uid"] = val.strip()
+        elif base == "DTSTART":
+            cur["dtstart"] = _ics_dt(val)
+        elif base == "RRULE":
+            cur["rrule"] = _rrule_parts(val)
+        elif base == "RECURRENCE-ID":
+            rd, _rt = _ics_dt(val)
+            cur["recurrence_id"] = rd
+        elif base == "EXDATE":
+            for piece in val.split(","):
+                xd, _xt = _ics_dt(piece)
+                if xd:
+                    cur["exdates"].add(xd.isoformat())
+    # 개별 수정 회차가 있으면 원 회차를 뺀다
+    out = []
+    for uid, d, t, title, is_override in events:
+        if not is_override and (uid, d) in overrides:
+            continue
+        out.append({"date": d.isoformat(), "time": t, "title": title})
+    out.sort(key=lambda e: (e["date"], e["time"] or ""))
+    return out[:200]
+
+
+def _expand_rrule(d0, rr, start, end):
+    """DAILY·WEEKLY 만 전개한다. 그 외(MONTHLY·YEARLY·복잡 규칙)는 시작 회차만."""
+    freq = (rr.get("FREQ") or "").upper()
+    if freq not in ("DAILY", "WEEKLY"):
+        return [d0]
+    try:
+        interval = max(1, int(rr.get("INTERVAL", "1")))
+    except ValueError:
+        interval = 1
+    until = None
+    if rr.get("UNTIL"):
+        until, _t = _ics_dt(rr["UNTIL"])
+    count = None
+    if rr.get("COUNT"):
+        try:
+            count = int(rr["COUNT"])
+        except ValueError:
+            count = None
+    days = None
+    if freq == "WEEKLY":
+        byday = [b for b in (rr.get("BYDAY") or "").split(",") if b in _BYDAY_IDX]
+        days = {_BYDAY_IDX[b] for b in byday} or {d0.weekday()}
+    occs, n, cursor = [], 0, d0
+    limit_date = min(end, until) if until else end
+    # COUNT 는 시작일부터 세므로 창 앞 구간도 세며 지나간다 (창 안만 담는다)
+    while cursor <= limit_date and n < 500:
+        if freq == "DAILY":
+            hits = [cursor]
+            step = datetime.timedelta(days=interval)
+        else:
+            week_start = cursor - datetime.timedelta(days=cursor.weekday())
+            hits = sorted(week_start + datetime.timedelta(days=i) for i in days)
+            hits = [h for h in hits if h >= d0]
+            step = datetime.timedelta(days=7 * interval)
+        for h in hits:
+            if count is not None and n >= count:
+                break
+            if h > limit_date:
+                continue
+            n += 1
+            if h >= start:
+                occs.append(h)
+        if count is not None and n >= count:
+            break
+        cursor += step
+    return occs
+
+
+def calendar_view():
+    today = datetime.date.today()
+    end = today + datetime.timedelta(days=CAL_WINDOW_DAYS)
+    cfg = _read_json(CALENDAR_CFG, {}) or {}
+    ics_url = cfg.get("icsUrl") if isinstance(cfg, dict) else None
+    fallback_text = None
+    try:
+        with open(CAL_FALLBACK, encoding="utf-8", errors="replace") as f:
+            fallback_text = f.read(8192)
+    except OSError:
+        pass
+    if isinstance(ics_url, str) and ics_url.startswith(("https://", "http://")):
+        text, err = _fetch_ics(ics_url)
+        if text:
+            return {"source": "ics", "events": parse_ics_events(text, today, end),
+                    "windowDays": CAL_WINDOW_DAYS}
+        # 연동은 했는데 못 읽었다 — 빈 화면인 척하지 않고 사실대로 + 폴백을 보여준다
+        return {"source": "ics-error", "error": err or "캘린더 주소를 읽지 못했어요",
+                "events": [], "fallback": fallback_text}
+    if fallback_text:
+        return {"source": "fallback", "events": [], "fallback": fallback_text}
+    return {"source": "none", "events": []}
+
+
+# ============================================================
+# 대화 이력 (W26) — 대화 도크가 지난 대화를 다시 보여줄 수 있게
+# ------------------------------------------------------------
+# 세션 전사 JSONL 에서 **사람이 주고받은 텍스트만** 뽑는다 (도구 호출·결과는 제외 —
+# 그건 팀 탭 라이브 뷰의 몫이다). 전사는 이 폴더에서 돈 세션 것만 읽을 수 있다.
+# ============================================================
+def _parse_chat_file(path, limit=120):
+    msgs = []
+    idx_by_id = {}
+    try:
+        with open(path, encoding="utf-8", errors="replace") as f:
+            for line in f:
+                try:
+                    d = json.loads(line)
+                except Exception:
+                    continue
+                t = d.get("type")
+                if t not in ("user", "assistant"):
+                    continue
+                m = d.get("message") or {}
+                content = m.get("content")
+                if isinstance(content, str):
+                    text = content
+                elif isinstance(content, list):
+                    text = "\n".join(
+                        b.get("text") for b in content
+                        if isinstance(b, dict) and b.get("type") == "text" and b.get("text")
+                    )
+                else:
+                    text = ""
+                text = (text or "").strip()
+                if not text:
+                    continue
+                entry = {"role": t, "text": text[:8000], "at": d.get("timestamp")}
+                mid = m.get("id")
+                # 어시스턴트 메시지는 스트리밍 중 같은 id 로 여러 줄 쌓인다 — 마지막 것이 전체다
+                if t == "assistant" and mid and mid in idx_by_id:
+                    msgs[idx_by_id[mid]] = entry
+                    continue
+                if t == "assistant" and mid:
+                    idx_by_id[mid] = len(msgs)
+                msgs.append(entry)
+    except OSError:
+        return []
+    return msgs[-limit:]
+
+
+def read_chat(session_id):
+    if not re.fullmatch(r"[0-9a-fA-F-]{36}", session_id or ""):
+        return None
+    path = os.path.join(_transcript_dir(), "%s.jsonl" % session_id)
+    if not os.path.isfile(path):
+        return {"session": session_id, "messages": []}
+    return {"session": session_id, "messages": _parse_chat_file(path)}
+
+
 class Handler(http.server.SimpleHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
 
@@ -870,6 +1137,22 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             if not ok:
                 return self._json(403, {"error": why})
             return self._json(200, {"roster": read_roster()})
+        if path == "/api/calendar":
+            ok, why = self._origin_ok()
+            if not ok:
+                return self._json(403, {"error": why})
+            return self._json(200, calendar_view())
+        if path == "/api/chat/history":
+            ok, why = self._origin_ok()
+            if not ok:
+                return self._json(403, {"error": why})
+            from urllib.parse import urlparse, parse_qs
+            q = parse_qs(urlparse(self.path).query)
+            sid = (q.get("session") or [""])[0]
+            chat = read_chat(sid)
+            if chat is None:
+                return self._json(400, {"error": "세션 형식이 올바르지 않습니다"})
+            return self._json(200, chat)
         if path == "/api/state":
             ok, why = self._origin_ok()
             if not ok:

@@ -16,7 +16,8 @@ state/
 ├── team.json           프로젝트 팀 진행현황 (project-team 스킬이 씀)
 ├── dashboard-data.js   위 둘을 래핑한 JS 파일 (파일 모드에서 대시보드가 읽는 유일한 파일)
 ├── automations.json    자동화 설정 (W22 — **대시보드/브리지가 씀**. 아래 ⑥)
-└── activity.json       파트너 활동 내역 (W22 — **브리지가 씀**. 아래 ⑥)
+├── activity.json       파트너 활동 내역 (W22 — **브리지가 씀**. 아래 ⑥)
+└── calendar.json       캘린더 연동 설정 (W26 — **에이전트(setup-calendar)가 씀**. 아래 ⑦)
 ```
 
 > `automations.json`·`activity.json` 은 **사업 상태가 아니라 사용자 환경 설정·실행 기록**이라
@@ -67,7 +68,9 @@ state/
 | `status.json.todos[]` | **reminder · issue-tracker 스킬** (메인 에이전트가 실행) **+ project-team 스킬(이월 항목만)** | reminder: 등록 시 `open` 추가 / 완료 시 `done`. issue-tracker: 개설 시 `open` 추가 / 해결 시 `done`. project-team: 완료 3분류에서 이월 확정 시 `open` 추가 |
 | `team.json` (기존 필드) | **project-team 스킬** | 팀 구성 시, 그리고 **단계 전환마다** |
 | `team.json.activeProject.{health,progress,outputs}` | **project-team 스킬** | health: 팀 구성 시 `"순항"`, 단계 전환·리스크 시 재평가 / progress: 단계 전환마다(단계 파생) / outputs: 산출물 저장 시마다 추가 |
-| `team.json.staff[]` | **project-team 스킬** | 채용 시 생성(`staff-guide.md` 규약), 대표의 변경 지시 시 수정. 프로젝트 종료와 무관하게 유지(재직) |
+| `team.json.staff[]` | **project-team 스킬** | 채용 시 생성(`staff-guide.md` 규약 — W26: 필요 역량만 성장형 채용), 대표의 변경 지시·회고 경험 누적 시 수정. 프로젝트 종료와 무관하게 유지(재직) |
+| `team.json.tickets[]` | **project-team 스킬** (W26 신설) | 편성 시 멤버별 발행, 착수/막힘/완료 시 status·outputs 갱신. 새 프로젝트 시작 시 직전 프로젝트의 done 티켓 정리 |
+| `state/calendar.json` | **에이전트(setup-calendar 스킬)** (W26 신설) | 대표가 구글 캘린더 비밀 주소(ICS)를 연결할 때. **대시보드는 읽기만 한다** |
 | `dashboard-data.js` (`status`·`team` 래핑) | 위 JSON을 바꾼 쪽 | **JSON을 갱신할 때마다 반드시 함께 재생성** |
 | `automations.json` | **대시보드(브리지)** — 예외 | 사용자가 자동화를 켜거나 시각·문구를 바꿀 때 (`POST /api/automations`) |
 | `activity.json` | **브리지** — 예외 | 자동화가 돌 때, 그리고 화면에서 일을 시킬 때(요청형도 남긴다 — "파트너가 어떻게 움직이는지"는 자율형만의 이야기가 아니다) |
@@ -88,7 +91,7 @@ install.sh 도 마지막 단계에서 같은 스크립트를 호출한다.
 
 | 모드 | 어떻게 여나 | 무엇을 읽나 |
 |---|---|---|
-| **서버 모드 (유일)** | `./dashboard.sh` (`http://127.0.0.1`) | 브리지 API 로 **파일을 직접**: `/api/state`(status·team) · `/api/records`(notes/ 서버 스캔) · `/api/note`(본문 지연 로드, csv/xlsx 표 포함) · `/api/search`(본문 전문 검색) · `/api/roster`(직무 표준) |
+| **서버 모드 (유일)** | `./dashboard.sh` (`http://127.0.0.1`) | 브리지 API 로 **파일을 직접**: `/api/state`(status·team) · `/api/records`(notes/ 서버 스캔) · `/api/note`(본문 지연 로드, csv/xlsx 표 포함) · `/api/search`(본문 전문 검색) · `/api/calendar`(W26 — calendar.json 의 ICS + 폴백 파일) · `/api/chat/history`(W26 — 대화 도크 이력, 세션 전사에서) |
 | (롤백용) 구 대시보드 | `dashboard-legacy/index.html` 더블클릭 | `state/dashboard-data.js` 래퍼만 (종전 파일 모드 그대로 보존) |
 
 - **새 대시보드는 `dashboard-data.js` 를 읽지 않는다.** 서버가 notes/ 를 직접 스캔하므로
@@ -197,6 +200,29 @@ install.sh 도 마지막 단계에서 같은 스크립트를 호출한다.
 - 스케줄러는 **서버가 꺼져 있던 동안의 시각을 건너뛴다**(밀린 알림이 쏟아지지 않게).
 - 안전장치: 동시 1건 · 하루 상한 · **연속 실패 3회면 자동 정지**하고 화면에 그 사실을 표시한다.
 - `running` 항목은 조회 시점에 세션 상태로 결말을 메꾼다 — **값을 지어내지 않는다.**
+- **화면 규약(W26)**: 자동화 탭은 **등록된 것**(켜져 있거나 실행 이력이 있는 것)만 목록에
+  보여준다. 출고 템플릿은 '추가' 픽커 안에서만 보인다 — 데이터 계약(빠진 템플릿을 꺼진 상태로
+  채워 넣는 읽기 규칙)은 그대로다.
+
+---
+
+## ⑦ 캘린더 연동 설정 (W26)
+
+`state/calendar.json` — **에이전트(setup-calendar 스킬)가 쓴다.** 대시보드(브리지)는 읽기만
+한다(쓰기 예외 2종 규칙 불변). 브리지는 `icsUrl` 이 있으면 원격 ICS 를 가져와(10분 캐시)
+`/api/calendar` 로 파싱 결과를 준다. 반복 일정(RRULE)은 DAILY·WEEKLY 만 창(28일) 안에서
+전개하고, MONTHLY·YEARLY 는 시작 회차만 표시한다(틀린 날짜를 만들지 않기 위한 보수적 선택).
+
+```json
+{ "icsUrl": "https://calendar.google.com/calendar/ical/…/basic.ics",
+  "updatedAt": "2026-07-30T10:00:00+09:00" }
+```
+
+- 비밀 주소는 개인정보다 — 이 파일은 폴더 밖으로 내보내지 않는다.
+- `icsUrl` 이 없거나 파일이 없으면 `/api/calendar` 는 `notes/calendar-fallback.md` 원문을
+  준다(구조를 추측해 파싱하지 않는다 — 지어낸 일정이 빈 화면보다 나쁘다).
+- **소스 차이 정직 고지**: 텔레그램 브리핑(daily-briefing)은 여전히 폴백 파일 기준이다.
+  대시보드 일정 화면과 소스가 다르다는 사실을 setup-calendar 코치가 대표에게 말한다.
 
 ---
 
@@ -287,10 +313,31 @@ install.sh 도 마지막 단계에서 같은 스크립트를 호출한다.
 | `activeProject.log` | array | 진행 로그. 항목: `{ "time": "HH:MM", "message": string }` |
 | `history` | array | 완료된 프로젝트 요약 목록. 항목: `{ "goal": string, "startedAt": string(ISO 8601), "completedAt": string(ISO 8601), "summary": string }` |
 | `pipeline` | array | **(선택·additive)** 대기 중 프로젝트 목록(activeProject와 동일 골격). 현재 미사용 — 다중 프로젝트 대비 예약. 없어도 됨 |
-| `staff` | array | **(신설·additive)** 상비 팀원 캐릭터 8명 ("재직" — 프로젝트 종료와 무관하게 유지). 없어도 됨(하위호환). 항목: 아래 |
+| `staff` | array | **(신설·additive)** 상비 팀원 캐릭터 ("재직" — 프로젝트 종료와 무관하게 유지. W26: 필요 역량만 성장형 채용 — 인원 수 가변). 없어도 됨(하위호환). 항목: 아래 |
+| `tickets` | array | **(W26 신설·additive)** 팀원 작업 티켓 — 칸반보드의 단위. 없으면 대시보드가 `members[]` 에서 파생 렌더(하위호환). 항목: 아래 |
 | `updatedAt` | string | 마지막 갱신 시각 (ISO 8601) |
 
 `members[].status` 권장값: `"waiting"` \| `"working"` \| `"done"` \| `"blocked"`.
+
+`activeProject.log[]` 항목에 **(W26 신설·additive)** `who`(팀원 닉네임 — `staff[].name` 매칭)를
+넣을 수 있다: `{ "time": "11:20", "who": "Quinn", "message": "리서치 완료" }`. 없어도 동작한다.
+
+**`tickets[]` 항목 스키마 (W26 신설 · additive):** project-team 스킬이 발행·갱신한다.
+업무의 맥락(왜·무엇을 근거로·무엇이 나왔나)이 티켓 안에 들어 있는 것이 계약이다.
+
+| 키 | 타입 | 설명 |
+|---|---|---|
+| `id` | string | `<프로젝트 슬러그>-t<N>` |
+| `title` | string | 맡은 작업 한 줄 |
+| `assignee` | string | 담당 팀원 닉네임 (`staff[].name`) |
+| `role` | string | 역할 표시명 |
+| `goal` | string | 왜 이 일을 하나 1줄 |
+| `context` | string | 입력 계보 — 어떤 기록·산출물을 근거로 시작하나 |
+| `sources` | array of string | 참고한 기록 경로 |
+| `outputs` | array of string | 산출물 경로 (저장 시마다 추가) |
+| `status` | string | `"waiting"` \| `"working"` \| `"blocked"` \| `"done"` |
+| `project` | string | 소속 프로젝트 goal |
+| `openedAt` / `updatedAt` | string | ISO 8601 |
 
 **`staff[]` 항목 스키마 (신설 · additive):** project-team 스킬이 채용 시 생성한다 (`staff-guide.md` 규약).
 대시보드는 이 배열이 있으면 "우리 팀" 카드에 사람(이름·아바타·MBTI)을 얹고, `members[].name` 과 매칭해
