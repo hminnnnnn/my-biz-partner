@@ -1363,7 +1363,58 @@ class Handler(http.server.SimpleHTTPRequestHandler):
     def _token_ok(self):
         return secrets.compare_digest(self.headers.get("X-Dashboard-Token", ""), TOKEN)
 
+    def _read_body(self):
+        """요청 본문을 바이트로 읽는다 — `Content-Length` 와 **chunked** 양쪽.
+
+        chunked 를 처리 안 하면 길이가 0 으로 보여 **본문이 통째로 유실된다**.
+        지금은 브라우저가 문자열 본문에 Content-Length 를 붙여서 안 드러나지만,
+        보내는 쪽이 바뀌면 조용히 깨지는 자리다(같은 뿌리로 501 사고가 났다).
+        """
+        self._body_read = True
+        if "chunked" in (self.headers.get("Transfer-Encoding") or "").lower():
+            out = bytearray()
+            while True:
+                line = self.rfile.readline(65536)
+                if not line:
+                    break
+                try:
+                    size = int(line.strip().split(b";")[0] or b"0", 16)
+                except ValueError:
+                    break
+                if size == 0:
+                    self.rfile.readline(65536)
+                    break
+                left = size
+                while left > 0:
+                    got = self.rfile.read(min(left, 65536))
+                    if not got:
+                        return bytes(out)
+                    out += got
+                    left -= len(got)
+                self.rfile.readline(65536)
+            return bytes(out)
+        try:
+            n = int(self.headers.get("Content-Length", "0"))
+        except ValueError:
+            n = 0
+        return self.rfile.read(n) if n > 0 else b""
+
+    def _drain(self):
+        """안 읽은 요청 본문을 비운다.
+
+        **왜 필요한가 (실측 결함)**: 인증·Origin 검사에서 거부할 때 본문을 읽지 않고
+        응답하면, keep-alive 연결에 남은 본문 바이트를 서버가 **다음 요청으로 파싱**한다.
+        그러면 멀쩡한 그다음 요청이 `501 Unsupported method` 로 죽는다.
+        사용자에게는 "토큰이 어긋난 뒤로 화면이 이상한 오류를 뱉는다" 로 보인다.
+        """
+        if self.command not in ("POST", "PUT", "PATCH", "DELETE"):
+            return
+        if getattr(self, "_body_read", False):
+            return
+        self._read_body()   # 읽어서 버린다 — 소켓에 안 남기는 게 목적이다
+
     def _json(self, code, obj):
+        self._drain()
         body = json.dumps(obj, ensure_ascii=False).encode("utf-8")
         self.send_response(code)
         self.send_header("Content-Type", "application/json; charset=utf-8")
@@ -1374,6 +1425,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
     # ── 정적: index.html 에 세션 토큰을 주입해 내려준다 ───────
     def do_GET(self):
+        self._body_read = False   # 핸들러는 연결 내내 재사용된다 — 요청마다 초기화
         path = self.path.split("?", 1)[0]
         if path == "/api/automations":
             ok, why = self._origin_ok()
@@ -1503,12 +1555,14 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
     # ── 파트너 호출 ──────────────────────────────────────────
     def do_PATCH(self):
+        self._body_read = False   # 핸들러는 연결 내내 재사용된다 — 요청마다 초기화
         route = self.path.split("?", 1)[0]
         if route != "/api/calendar/events":
             return self._json(404, {"error": "not found"})
         return self._calendar_write("PATCH", route)
 
     def do_DELETE(self):
+        self._body_read = False   # 핸들러는 연결 내내 재사용된다 — 요청마다 초기화
         route = self.path.split("?", 1)[0]
         if route != "/api/calendar/events":
             return self._json(404, {"error": "not found"})
@@ -1522,8 +1576,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         if not self._token_ok():
             return self._json(403, {"error": "세션 토큰이 없거나 틀립니다"})
         try:
-            n = int(self.headers.get("Content-Length", "0"))
-            body = json.loads(self.rfile.read(n).decode("utf-8") or "{}") if n else {}
+            body = json.loads(self._read_body().decode("utf-8") or "{}")
         except Exception:
             return self._json(400, {"error": "본문을 읽을 수 없습니다"})
         try:
@@ -1547,6 +1600,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             return self._json(502, {"error": str(e)})
 
     def do_POST(self):
+        self._body_read = False   # 핸들러는 연결 내내 재사용된다 — 요청마다 초기화
         route = self.path.split("?", 1)[0]
         if route == "/api/jobs":
             return self._dispatch_job()
@@ -1566,8 +1620,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             return self._json(403, {"error": "세션 토큰이 없거나 틀립니다"})
 
         try:
-            n = int(self.headers.get("Content-Length", "0"))
-            payload = json.loads(self.rfile.read(n).decode("utf-8") or "{}")
+            payload = json.loads(self._read_body().decode("utf-8") or "{}")
         except Exception:
             return self._json(400, {"error": "본문을 읽을 수 없습니다"})
 
@@ -1603,8 +1656,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         if not self._token_ok():
             return self._json(403, {"error": "세션 토큰이 없거나 틀립니다"})
         try:
-            n = int(self.headers.get("Content-Length", "0"))
-            payload = json.loads(self.rfile.read(n).decode("utf-8") or "{}")
+            payload = json.loads(self._read_body().decode("utf-8") or "{}")
         except Exception:
             return self._json(400, {"error": "본문을 읽을 수 없습니다"})
         aid = str(payload.get("id") or "")
@@ -1648,8 +1700,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         if not self._token_ok():
             return self._json(403, {"error": "세션 토큰이 없거나 틀립니다"})
         try:
-            n = int(self.headers.get("Content-Length", "0"))
-            payload = json.loads(self.rfile.read(n).decode("utf-8") or "{}")
+            payload = json.loads(self._read_body().decode("utf-8") or "{}")
         except Exception:
             return self._json(400, {"error": "본문을 읽을 수 없습니다"})
         jid = str(payload.get("id") or "")
@@ -1697,8 +1748,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         if not self._token_ok():
             return self._json(403, {"error": "세션 토큰이 없거나 틀립니다"})
         try:
-            n = int(self.headers.get("Content-Length", "0"))
-            payload = json.loads(self.rfile.read(n).decode("utf-8") or "{}")
+            payload = json.loads(self._read_body().decode("utf-8") or "{}")
         except Exception:
             return self._json(400, {"error": "본문을 읽을 수 없습니다"})
 
