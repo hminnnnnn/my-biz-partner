@@ -1,0 +1,7 @@
+{
+  "name": "google-connect",
+  "private": true,
+  "type": "module",
+  "description": "구글 캘린더 연결 — 브라우저 자동화. 참가자 크롬을 그대로 쓰므로 브라우저 다운로드가 없다.",
+  "dependencies": { "playwright-core": "^1.62.0" }
+}

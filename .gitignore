@@ -4,3 +4,12 @@ run*.log
 out.log
 .omc/
 .dash-viewer.json
+
+# 들여온 원본 — 카톡·노션에서 가져온 개인 기록이다. 절대 커밋하지 않는다
+_import/
+
+# 구글 캘린더 연결 — 개인 열쇠·브라우저 프로필·설치물은 절대 커밋하지 않는다
+state/google-calendar.json
+tools/google-connect/node_modules/
+tools/google-connect/.chrome-profile/
+tools/google-connect/bun.lock*

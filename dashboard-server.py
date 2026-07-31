@@ -1062,6 +1062,139 @@ def read_chat(session_id):
     return {"session": session_id, "messages": _parse_chat_file(path)}
 
 
+
+# ─────────────────────────────────────────────────────────────────────
+# 구글 캘린더 — 저장된 열쇠로 읽고 쓴다 (표준 라이브러리만, pip 불필요)
+#
+# 쓰기 경계: **구글 캘린더는 우리 상태가 아니다.** 폰·웹·다른 앱이 이미 동시에 쓰고,
+# 충돌 처리는 구글이 한다. 그래서 화면이 직접 고쳐도 된다.
+# (반면 status.json·team.json 은 여전히 에이전트만 쓴다 — 그 경계는 넓히지 않는다.)
+#
+# 실측으로 확정한 것:
+#  · refresh_token 으로 access_token 재발급이 동작한다 (앱 게시 완료 → 7일 만료 없음)
+#  · 쓰기는 넣고 → 되읽고 → 지운다 로 검사해야 조용한 실패를 잡는다
+# ─────────────────────────────────────────────────────────────────────
+import urllib.request as _urlreq
+import urllib.error as _urlerr
+import urllib.parse as _urlparse
+
+GCAL_KEY = os.path.join(ROOT, "state", "google-calendar.json")
+_gcal_token = {"value": None, "expires": 0.0}
+
+
+def _gcal_key():
+    try:
+        with open(GCAL_KEY, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return None
+
+
+def _gcal_access_token():
+    """access_token 은 1시간짜리다. 만료 전까지 재사용한다."""
+    if _gcal_token["value"] and _gcal_token["expires"] > time.time() + 60:
+        return _gcal_token["value"]
+    k = _gcal_key()
+    if not k or not k.get("refresh_token"):
+        raise RuntimeError("아직 캘린더가 연결되지 않았어요")
+    body = _urlparse.urlencode({
+        "client_id": k["client_id"], "client_secret": k["client_secret"],
+        "refresh_token": k["refresh_token"], "grant_type": "refresh_token",
+    }).encode()
+    req = _urlreq.Request("https://oauth2.googleapis.com/token", data=body,
+                          headers={"Content-Type": "application/x-www-form-urlencoded"})
+    with _urlreq.urlopen(req, timeout=15) as r:
+        d = json.loads(r.read().decode("utf-8"))
+    if not d.get("access_token"):
+        raise RuntimeError("캘린더 연결이 끊겼어요. 구글에서 접근을 취소하셨을 수 있어요.")
+    _gcal_token["value"] = d["access_token"]
+    _gcal_token["expires"] = time.time() + int(d.get("expires_in", 3600))
+    return d["access_token"]
+
+
+def _gcal_call(path, method="GET", payload=None):
+    tok = _gcal_access_token()
+    data = json.dumps(payload).encode() if payload is not None else None
+    req = _urlreq.Request("https://www.googleapis.com/calendar/v3" + path, data=data, method=method,
+                          headers={"Authorization": "Bearer " + tok, "Content-Type": "application/json"})
+    try:
+        with _urlreq.urlopen(req, timeout=20) as r:
+            raw = r.read().decode("utf-8")
+            return json.loads(raw) if raw.strip() else {}
+    except _urlerr.HTTPError as e:
+        try:
+            msg = json.loads(e.read().decode("utf-8")).get("error", {}).get("message", "")
+        except Exception:
+            msg = ""
+        raise RuntimeError(msg or "구글 캘린더가 요청을 거절했어요")
+
+
+def _gcal_to_event(g):
+    st, en = g.get("start") or {}, g.get("end") or {}
+    all_day = not st.get("dateTime")
+    return {
+        "id": g.get("id", ""),
+        "title": g.get("summary") or "(제목 없음)",
+        "start": st.get("dateTime") or st.get("date") or "",
+        "end": en.get("dateTime") or en.get("date") or "",
+        "allDay": all_day,
+    }
+
+
+def _gcal_body(payload):
+    b = {}
+    if payload.get("title") is not None:
+        b["summary"] = payload["title"]
+    all_day = bool(payload.get("allDay"))
+    for side in ("start", "end"):
+        v = payload.get(side)
+        if not v:
+            continue
+        b[side] = {"date": v[:10]} if all_day else {"dateTime": v, "timeZone": "Asia/Seoul"}
+    return b
+
+
+def gcal_connection():
+    k = _gcal_key()
+    if not k or not k.get("refresh_token"):
+        return {"status": "never"}
+    try:
+        _gcal_access_token()
+        return {"status": "connected", "account": k.get("account")}
+    except Exception as e:
+        return {"status": "error", "reason": str(e)}
+
+
+def gcal_list(frm, to):
+    q = _urlparse.urlencode({
+        "timeMin": frm, "timeMax": to, "singleEvents": "true",
+        "orderBy": "startTime", "maxResults": "500",
+    })
+    d = _gcal_call("/calendars/primary/events?" + q)
+    return [_gcal_to_event(x) for x in d.get("items", [])]
+
+
+def gcal_create(payload):
+    return _gcal_to_event(_gcal_call("/calendars/primary/events", "POST", _gcal_body(payload)))
+
+
+def gcal_update(payload):
+    eid = _urlparse.quote(str(payload.get("id", "")))
+    return _gcal_to_event(_gcal_call("/calendars/primary/events/" + eid, "PATCH", _gcal_body(payload)))
+
+
+def gcal_delete(eid):
+    """지우기 전 원본을 돌려준다 — 되돌리기에 쓴다."""
+    q = _urlparse.quote(str(eid))
+    before = None
+    try:
+        before = _gcal_to_event(_gcal_call("/calendars/primary/events/" + q))
+    except Exception:
+        pass
+    _gcal_call("/calendars/primary/events/" + q, "DELETE")
+    return before
+
+
 class Handler(http.server.SimpleHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
 
@@ -1137,6 +1270,20 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             if not ok:
                 return self._json(403, {"error": why})
             return self._json(200, {"roster": read_roster()})
+        if path == "/api/calendar/events":
+            ok, why = self._origin_ok()
+            if not ok:
+                return self._json(403, {"error": why})
+            from urllib.parse import urlparse as _up, parse_qs as _pq
+            q = _pq(_up(self.path).query)
+            conn = gcal_connection()
+            if conn.get("status") != "connected":
+                return self._json(200, {"events": [], "connection": conn})
+            try:
+                evs = gcal_list((q.get("from") or [""])[0], (q.get("to") or [""])[0])
+            except Exception as e:
+                return self._json(200, {"events": [], "connection": {"status": "error", "reason": str(e)}})
+            return self._json(200, {"events": evs, "connection": conn})
         if path == "/api/calendar":
             ok, why = self._origin_ok()
             if not ok:
@@ -1211,6 +1358,45 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         self.wfile.write(body)
 
     # ── 파트너 호출 ──────────────────────────────────────────
+    def do_PATCH(self):
+        route = self.path.split("?", 1)[0]
+        if route != "/api/calendar/events":
+            return self._json(404, {"error": "not found"})
+        return self._calendar_write("PATCH", route)
+
+    def do_DELETE(self):
+        route = self.path.split("?", 1)[0]
+        if route != "/api/calendar/events":
+            return self._json(404, {"error": "not found"})
+        return self._calendar_write("DELETE", route)
+
+    def _calendar_write(self, method, route):
+        """구글 캘린더 쓰기. 실패는 **사용자 말로** 돌려준다."""
+        ok, why = self._origin_ok()
+        if not ok:
+            return self._json(403, {"error": why})
+        if not self._token_ok():
+            return self._json(403, {"error": "세션 토큰이 없거나 틀립니다"})
+        try:
+            n = int(self.headers.get("Content-Length", "0"))
+            body = json.loads(self.rfile.read(n).decode("utf-8") or "{}") if n else {}
+        except Exception:
+            return self._json(400, {"error": "본문을 읽을 수 없습니다"})
+        try:
+            if method == "DELETE":
+                from urllib.parse import urlparse as _up, parse_qs as _pq
+                eid = (_pq(_up(self.path).query).get("id") or [""])[0]
+                if not eid:
+                    return self._json(400, {"error": "어느 일정인지 알 수 없어요"})
+                return self._json(200, {"removed": gcal_delete(eid)})
+            if method == "PATCH":
+                return self._json(200, gcal_update(body))
+            if route == "/api/calendar/undo":
+                return self._json(200, gcal_create(body))
+            return self._json(200, gcal_create(body))
+        except Exception as e:
+            return self._json(502, {"error": str(e)})
+
     def do_POST(self):
         route = self.path.split("?", 1)[0]
         if route == "/api/jobs":
@@ -1219,6 +1405,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             return self._save_automation()
         if route == "/api/jobs/stop":
             return self._stop_job()
+        if route in ("/api/calendar/events", "/api/calendar/undo"):
+            return self._calendar_write("POST", route)
         if route != "/api/ask":
             return self._json(404, {"error": "not found"})
 

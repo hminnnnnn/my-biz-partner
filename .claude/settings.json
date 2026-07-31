@@ -8,11 +8,21 @@
       "Bash(bash install.sh)",
       "Bash(./refresh-dashboard.sh)",
       "Bash(bash refresh-dashboard.sh)",
+      "Bash(./dashboard.sh)",
+      "Bash(./dashboard.sh:*)",
+      "Bash(bash dashboard.sh)",
       "Bash(mkdir:*)",
       "Bash(ls:*)",
       "Bash(cat:*)",
       "Bash(date:*)",
-      "Bash(open ./dashboard/index.html)"
+      "Bash(open ./dashboard/index.html)",
+      "Bash(open ./_import)",
+      "Bash(open _import)",
+      "Bash(mkdir -p _import && open ./_import)",
+      "Bash(bun tools/google-connect/connect.mjs:*)",
+      "Bash(bun install:*)",
+      "Bash(bun --version)",
+      "Bash(cd tools/google-connect && bun install)"
     ],
     "deny": [
       "Edit(../**)",

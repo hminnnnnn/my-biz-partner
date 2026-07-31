@@ -17,7 +17,8 @@ state/
 ├── dashboard-data.js   위 둘을 래핑한 JS 파일 (파일 모드에서 대시보드가 읽는 유일한 파일)
 ├── automations.json    자동화 설정 (W22 — **대시보드/브리지가 씀**. 아래 ⑥)
 ├── activity.json       파트너 활동 내역 (W22 — **브리지가 씀**. 아래 ⑥)
-└── calendar.json       캘린더 연동 설정 (W26 — **에이전트(setup-calendar)가 씀**. 아래 ⑦)
+├── calendar.json       캘린더 연동 설정 (W26 — **에이전트(setup-calendar)가 씀**. 아래 ⑦)
+└── google-calendar.json  구글 OAuth 토큰 (W27 — **에이전트(setup-calendar 방법A)가 씀**. 아래 ⑦-1)
 ```
 
 > `automations.json`·`activity.json` 은 **사업 상태가 아니라 사용자 환경 설정·실행 기록**이라
@@ -91,7 +92,7 @@ install.sh 도 마지막 단계에서 같은 스크립트를 호출한다.
 
 | 모드 | 어떻게 여나 | 무엇을 읽나 |
 |---|---|---|
-| **서버 모드 (유일)** | `./dashboard.sh` (`http://127.0.0.1`) | 브리지 API 로 **파일을 직접**: `/api/state`(status·team) · `/api/records`(notes/ 서버 스캔) · `/api/note`(본문 지연 로드, csv/xlsx 표 포함) · `/api/search`(본문 전문 검색) · `/api/calendar`(W26 — calendar.json 의 ICS + 폴백 파일) · `/api/chat/history`(W26 — 대화 도크 이력, 세션 전사에서) |
+| **서버 모드 (유일)** | `./dashboard.sh` (`http://127.0.0.1`) | 브리지 API 로 **파일을 직접**: `/api/state`(status·team) · `/api/records`(notes/ 서버 스캔) · `/api/note`(본문 지연 로드, csv/xlsx 표 포함) · `/api/search`(본문 전문 검색) · `/api/calendar`(W26 — calendar.json 의 ICS + 폴백 파일) · `/api/chat/history`(W26 — 대화 도크 이력, 세션 전사에서) · `/api/calendar/events`(W27 — 구글 캘린더 GET/POST/PATCH/DELETE) · `/api/calendar/undo`(W27 — 지운 일정 복원) |
 | (롤백용) 구 대시보드 | `dashboard-legacy/index.html` 더블클릭 | `state/dashboard-data.js` 래퍼만 (종전 파일 모드 그대로 보존) |
 
 - **새 대시보드는 `dashboard-data.js` 를 읽지 않는다.** 서버가 notes/ 를 직접 스캔하므로
@@ -223,6 +224,31 @@ install.sh 도 마지막 단계에서 같은 스크립트를 호출한다.
   준다(구조를 추측해 파싱하지 않는다 — 지어낸 일정이 빈 화면보다 나쁘다).
 - **소스 차이 정직 고지**: 텔레그램 브리핑(daily-briefing)은 여전히 폴백 파일 기준이다.
   대시보드 일정 화면과 소스가 다르다는 사실을 setup-calendar 코치가 대표에게 말한다.
+
+## ⑦-1 구글 캘린더 실연동 (W27) — **쓰기 경계의 유일한 예외**
+
+`state/google-calendar.json` — OAuth 토큰. **에이전트(setup-calendar 방법 A, `tools/google-connect/connect.mjs`)가 쓴다.**
+브리지(`dashboard-server.py`)는 이 파일을 **읽어서** 구글 캘린더 API 를 직접 호출한다.
+
+```
+GET    /api/calendar/events?from=&to=   일정 읽기
+POST   /api/calendar/events             만들기
+PATCH  /api/calendar/events             고치기
+DELETE /api/calendar/events?id=         지우기
+POST   /api/calendar/undo               지운 일정을 그대로 다시 만들기 (5초 되돌리기)
+```
+
+**왜 이것만 예외인가.** ⑥의 쓰기 예외 2종(`automations.json`·`activity.json`)은 *우리 파일*이다.
+구글 캘린더는 **우리 파일이 아니라 외부 시스템**이다. 충돌 해소·권한·이력은 구글이 책임진다.
+따라서:
+
+- `status.json`·`team.json` 은 **여전히 에이전트만** 쓴다. 이 경계는 **넓어지지 않았다.**
+- 화면에서 고칠 수 있는 일정은 **구글에서 온 것뿐**이다. 우리 할 일(`status.json.todos`)의
+  기한과 ICS 일정은 격자에 **보이기만** 하고 화면에서 못 고친다(고치려면 파트너에게 말한다).
+- 지우기는 사고 비용이 커서 **5초 되돌리기**를 반드시 함께 제공한다.
+
+> 다음에 다른 외부 시스템(Gmail·Drive 등)을 붙일 때 이 절이 선례다. 판단 기준은 하나 —
+> **"우리 상태 파일인가, 남의 시스템인가."** 우리 파일이면 에이전트만 쓴다.
 
 ---
 
