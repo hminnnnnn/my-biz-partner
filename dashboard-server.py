@@ -552,7 +552,25 @@ def _queue_pump():
 #
 #  규칙은 refresh-dashboard.sh 와 동일하게 맞춘다 (같은 화면을 두 곳에서 다르게 그리면 안 된다).
 # ═══════════════════════════════════════════════════════════════════
-NOTE_FOLDERS = ["inbox", "meetings", "customers", "ideas", "issues"]
+#  폴더는 **고정 목록이 아니다.** notes/ 아래에 실제로 있는 폴더를 그대로 읽는다.
+#  이유: 폴더 이름은 사람마다 달라야 한다. 사업하는 사람에겐 "고객사"가 맞지만 자격증을 준비하는
+#  사람에게 `customers/` 는 거짓말이다(실측: 개인 사용자 주행에서 스터디 멤버가 customers/ 로 갔다).
+#  화면은 서버가 준 키를 그대로 순회하므로(RecordsTab), 여기만 동적이면 새 폴더가 바로 보인다.
+DEFAULT_NOTE_FOLDERS = ["inbox", "issues"]   # 설치 직후 기본. 나머지는 각자 만든다.
+
+
+def note_folders():
+    """notes/ 아래 실재하는 폴더를 이름순으로. `projects/` 는 아래에서 따로 훑으므로 제외."""
+    d = os.path.join(ROOT, "notes")
+    try:
+        names = sorted(n for n in os.listdir(d)
+                       if not n.startswith(".") and n != "projects"
+                       and os.path.isdir(os.path.join(d, n)))
+    except OSError:
+        names = []
+    return names or DEFAULT_NOTE_FOLDERS
+
+
 DOC_EXTS = (".md", ".csv", ".xlsx")
 CONTENT_CAP = 256 * 1024        # 서버는 필요할 때 한 건씩만 읽으므로 래퍼(16KB)보다 넉넉하게
 TABLE_MAX_ROWS, TABLE_MAX_COLS = 2000, 64
@@ -655,7 +673,7 @@ def _parse_xlsx(path):
 def scan_records():
     """기록 목록·폴더 트리. **본문은 담지 않는다** — 첫 화면이 기록 수에 비례해 느려지지 않게."""
     counts, items, tree_notes = {}, [], {}
-    for folder in NOTE_FOLDERS:
+    for folder in note_folders():
         d = os.path.join(ROOT, "notes", folder)
         names = []
         if os.path.isdir(d):
@@ -982,7 +1000,32 @@ def _expand_rrule(d0, rr, start, end):
     return occs
 
 
+def _gcal_split_local(s, all_day):
+    """구글 시각 문자열 → (`YYYY-MM-DD`, `HH:MM`).
+
+    캘린더마다 시간대 설정이 달라 `...Z` 로 올 때도 `...+09:00` 으로 올 때도 있다.
+    **반드시 로컬 시각으로 변환한 뒤** 쪼갠다 — 문자열을 그냥 자르면 UTC 를
+    한국 시각처럼 보여주는 사고가 난다(실측).
+    """
+    if not s:
+        return None, None
+    if all_day or len(s) == 10:
+        return s[:10], None
+    try:
+        # 파이썬 3.9 의 fromisoformat 은 'Z' 를 못 읽는다 (맥 기본 python3 이 3.9 다)
+        dt = datetime.datetime.fromisoformat(s.replace("Z", "+00:00")).astimezone()
+        return dt.date().isoformat(), dt.strftime("%H:%M")
+    except ValueError:
+        return s[:10], None
+
+
 def calendar_view():
+    """홈의 '다가오는 일정' 과 텔레그램 브리핑이 함께 쓰는 창구.
+
+    **구글 연결이 1순위다.** 예전엔 이 함수가 ICS·수기 파일만 봐서, 구글을 연결해도
+    홈 목록은 "아직 일정이 연결되지 않았어요" 라고 말하고 브리핑도 구글 일정을 못 읽었다
+    (같은 화면에서 격자에는 일정이 가득한데 옆 카드는 미연결이라 말하는 모순).
+    """
     today = datetime.date.today()
     end = today + datetime.timedelta(days=CAL_WINDOW_DAYS)
     cfg = _read_json(CALENDAR_CFG, {}) or {}
@@ -993,6 +1036,26 @@ def calendar_view():
             fallback_text = f.read(8192)
     except OSError:
         pass
+
+    key = _gcal_key()
+    if key and key.get("refresh_token"):
+        try:
+            raw = gcal_list(
+                today.isoformat() + "T00:00:00Z",
+                (end + datetime.timedelta(days=1)).isoformat() + "T00:00:00Z",
+            )
+        except Exception as e:
+            # 연결은 했는데 못 읽었다 — 빈 화면인 척하지 않고 사실대로
+            return {"source": "google-error", "error": str(e), "events": [], "fallback": fallback_text}
+        evs = []
+        for g in raw:
+            d, t = _gcal_split_local(g.get("start"), g.get("allDay"))
+            if not d:
+                continue
+            evs.append({"date": d, "time": t, "title": g.get("title") or "(제목 없음)"})
+        evs.sort(key=lambda e: (e["date"], e["time"] or "99:99"))
+        return {"source": "google", "events": evs, "windowDays": CAL_WINDOW_DAYS}
+
     if isinstance(ics_url, str) and ics_url.startswith(("https://", "http://")):
         text, err = _fetch_ics(ics_url)
         if text:
@@ -1129,16 +1192,57 @@ def _gcal_call(path, method="GET", payload=None):
         raise RuntimeError(msg or "구글 캘린더가 요청을 거절했어요")
 
 
-def _gcal_to_event(g):
+def _gcal_to_event(g, cal=None):
+    """구글 일정 → 화면이 쓰는 모양.
+
+    `start`/`end` 는 구글이 준 **문자열 그대로** 둔다. 캘린더마다 시간대 설정이 달라서
+    (실측: 같은 계정에서도 어떤 캘린더는 `Asia/Seoul`, 어떤 캘린더는 `UTC`) 구글이
+    `...+09:00` 로 줄 때도 `...Z` 로 줄 때도 있다. 둘 다 오프셋을 품은 값이라
+    화면의 `new Date(...)` 가 알아서 그 지역 시각으로 그린다.
+    여기서 문자열을 잘라 시각을 만들면 **UTC 를 한국 시각처럼 보여주는 사고**가 난다(실측).
+    """
     st, en = g.get("start") or {}, g.get("end") or {}
     all_day = not st.get("dateTime")
-    return {
+    e = {
         "id": g.get("id", ""),
         "title": g.get("summary") or "(제목 없음)",
         "start": st.get("dateTime") or st.get("date") or "",
         "end": en.get("dateTime") or en.get("date") or "",
         "allDay": all_day,
     }
+    if cal:
+        e["calendarId"] = cal.get("id", "")
+        e["calendarName"] = cal.get("summary") or ""
+        # 읽기 전용 캘린더(공휴일·공유받은 것)의 일정은 화면에서 고칠 수 없다
+        e["writable"] = cal.get("accessRole") in ("owner", "writer")
+    return e
+
+
+_gcal_cals = {"value": None, "at": 0.0}
+
+
+def gcal_calendars():
+    """볼 캘린더 목록.
+
+    **구글에서 체크를 꺼 둔 캘린더는 가져오지 않는다**(`selected` 가 false).
+    대표 결정: 무엇을 볼지는 구글 사이드바에서 이미 고르고 있으니 그걸 그대로 따른다 —
+    화면에 또 다른 켜기/끄기 설정을 만들지 않는다.
+
+    권한이 좁은 옛 연결(`calendar.events` 만 받은 참가자)은 목록 조회가 403 이다.
+    그때는 **기본 캘린더 하나**로 돌아간다 — 연결이 깨지는 게 아니라 좁아질 뿐이다.
+    """
+    if _gcal_cals["value"] is not None and time.time() - _gcal_cals["at"] < 600:
+        return _gcal_cals["value"]
+    try:
+        items = _gcal_call("/users/me/calendarList").get("items", [])
+        cals = [c for c in items if c.get("selected")]
+        if not cals:  # 전부 꺼져 있으면 최소한 기본 캘린더는 본다
+            cals = [c for c in items if c.get("primary")]
+    except Exception:
+        cals = [{"id": "primary", "summary": "", "accessRole": "owner", "primary": True}]
+    _gcal_cals["value"] = cals
+    _gcal_cals["at"] = time.time()
+    return cals
 
 
 def _gcal_body(payload):
@@ -1165,33 +1269,73 @@ def gcal_connection():
         return {"status": "error", "reason": str(e)}
 
 
+def _cal_path(cid):
+    return "/calendars/" + _urlparse.quote(str(cid or "primary"), safe="")
+
+
 def gcal_list(frm, to):
+    """켜 둔 캘린더들의 일정을 **합쳐서** 준다.
+
+    한 캘린더가 실패해도(권한 회수·삭제 등) 나머지는 보여준다 — 하나 때문에
+    화면 전체가 비면 사용자는 "연동이 깨졌다"고 읽는다.
+    """
     q = _urlparse.urlencode({
         "timeMin": frm, "timeMax": to, "singleEvents": "true",
         "orderBy": "startTime", "maxResults": "500",
     })
-    d = _gcal_call("/calendars/primary/events?" + q)
-    return [_gcal_to_event(x) for x in d.get("items", [])]
+    out = []
+    for cal in gcal_calendars():
+        try:
+            d = _gcal_call(_cal_path(cal.get("id")) + "/events?" + q)
+        except Exception:
+            continue
+        out.extend(_gcal_to_event(x, cal) for x in d.get("items", []))
+    out.sort(key=lambda e: (e.get("start") or "", e.get("title") or ""))
+    return out
+
+
+class CalendarReadOnly(RuntimeError):
+    """우리가 막은 것 — 구글이 거절한 게 아니다. 상태 코드를 502 로 내보내면 안 된다."""
+
+
+def _writable_or_die(cid):
+    """읽기 전용 캘린더(공휴일·공유받은 것)에 쓰려 하면 **사용자 말로** 막는다."""
+    if not cid or cid == "primary":
+        return
+    for c in gcal_calendars():
+        if c.get("id") == cid:
+            if c.get("accessRole") not in ("owner", "writer"):
+                raise CalendarReadOnly("이 캘린더는 읽기 전용이라 여기서는 못 고쳐요")
+            return
 
 
 def gcal_create(payload):
-    return _gcal_to_event(_gcal_call("/calendars/primary/events", "POST", _gcal_body(payload)))
+    cid = payload.get("calendarId") or "primary"
+    _writable_or_die(cid)
+    cal = next((c for c in gcal_calendars() if c.get("id") == cid), None)
+    return _gcal_to_event(_gcal_call(_cal_path(cid) + "/events", "POST", _gcal_body(payload)), cal)
 
 
 def gcal_update(payload):
+    cid = payload.get("calendarId") or "primary"
+    _writable_or_die(cid)
+    cal = next((c for c in gcal_calendars() if c.get("id") == cid), None)
     eid = _urlparse.quote(str(payload.get("id", "")))
-    return _gcal_to_event(_gcal_call("/calendars/primary/events/" + eid, "PATCH", _gcal_body(payload)))
+    return _gcal_to_event(_gcal_call(_cal_path(cid) + "/events/" + eid, "PATCH", _gcal_body(payload)), cal)
 
 
-def gcal_delete(eid):
+def gcal_delete(eid, cid=None):
     """지우기 전 원본을 돌려준다 — 되돌리기에 쓴다."""
+    cid = cid or "primary"
+    _writable_or_die(cid)
+    cal = next((c for c in gcal_calendars() if c.get("id") == cid), None)
     q = _urlparse.quote(str(eid))
     before = None
     try:
-        before = _gcal_to_event(_gcal_call("/calendars/primary/events/" + q))
+        before = _gcal_to_event(_gcal_call(_cal_path(cid) + "/events/" + q), cal)
     except Exception:
         pass
-    _gcal_call("/calendars/primary/events/" + q, "DELETE")
+    _gcal_call(_cal_path(cid) + "/events/" + q, "DELETE")
     return before
 
 
@@ -1385,15 +1529,20 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         try:
             if method == "DELETE":
                 from urllib.parse import urlparse as _up, parse_qs as _pq
-                eid = (_pq(_up(self.path).query).get("id") or [""])[0]
+                _q = _pq(_up(self.path).query)
+                eid = (_q.get("id") or [""])[0]
+                cid = (_q.get("calendarId") or [""])[0]
                 if not eid:
                     return self._json(400, {"error": "어느 일정인지 알 수 없어요"})
-                return self._json(200, {"removed": gcal_delete(eid)})
+                # 되돌리기가 **같은 캘린더로** 복원되도록 원본에 calendarId 를 실어 돌려준다
+                return self._json(200, {"removed": gcal_delete(eid, cid)})
             if method == "PATCH":
                 return self._json(200, gcal_update(body))
             if route == "/api/calendar/undo":
                 return self._json(200, gcal_create(body))
             return self._json(200, gcal_create(body))
+        except CalendarReadOnly as e:
+            return self._json(403, {"error": str(e)})
         except Exception as e:
             return self._json(502, {"error": str(e)})
 

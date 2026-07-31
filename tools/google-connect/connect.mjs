@@ -36,7 +36,18 @@ const KIT      = path.resolve(HERE, '../..');
 const KEYFILE  = path.join(KIT, 'state', 'google-calendar.json');
 const PROFILE  = process.env.PROFILE_DIR ?? path.join(HERE, '.chrome-profile');
 const APP_NAME = '내 비즈니스 파트너';
-const SCOPE    = 'https://www.googleapis.com/auth/calendar.events';
+/**
+ * 권한 두 가지.
+ *  · calendar.events   일정 **읽고 쓰기** (만들기·고치기·지우기)
+ *  · calendar.readonly 캘린더 **목록** 읽기 — 이게 없으면 `primary` 하나만 보인다.
+ *
+ * 실측(2026-08-01): `calendar.events` 만으로도 **ID 를 아는** 캘린더의 일정은 읽힌다(200).
+ * 막히는 건 `users/me/calendarList` 조회뿐이다(403 insufficient scopes).
+ * 그래서 "무슨 캘린더가 있는지"를 알려면 readonly 가 필요하다.
+ * 전체 권한(`/auth/calendar`)을 안 쓰는 이유: 캘린더 자체를 만들거나 지울 권한까지 달라고
+ * 하지 않는다 — 우리는 일정만 건드린다.
+ */
+const SCOPE    = 'https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/calendar.readonly';
 const CHROME   = process.env.CHROME_PATH ?? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 const PORT     = Number(process.env.CDP_PORT ?? 9222);
 
@@ -360,7 +371,10 @@ async function setupCloud(d, account) {
 /* ─────────────────── 자동: 캘린더 권한 승인 ─────────────────── */
 
 async function grantAccess(ctx) {
-  if (S.refresh_token) { ok('⑥ 캘린더 권한 승인', '이미 승인돼 있어요'); return; }
+  // 열쇠가 있어도 **그때 받은 권한이 지금 필요한 권한과 같아야** 넘어간다.
+  // 안 그러면 권한이 늘었을 때 "이미 승인돼 있어요" 하고 건너뛰어, 정작 쓸 때 403 이 난다.
+  if (S.refresh_token && S.scope === SCOPE) { ok('⑥ 캘린더 권한 승인', '이미 승인돼 있어요'); return; }
+  if (S.refresh_token) say('  · 필요한 권한이 늘었어요 — 승인을 한 번만 더 받을게요.');
 
   const verifier  = crypto.randomBytes(32).toString('base64url');
   const challenge = crypto.createHash('sha256').update(verifier).digest('base64url');
