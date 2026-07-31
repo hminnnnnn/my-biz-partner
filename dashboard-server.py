@@ -136,7 +136,7 @@ def list_sessions():
     try:
         p = subprocess.run(
             ["claude", "agents", "--json", "--all", "--cwd", ROOT],
-            capture_output=True, text=True, timeout=20,
+            capture_output=True, text=True, timeout=20, start_new_session=True,
         )
         raw = json.loads(p.stdout or "[]")
     except Exception:
@@ -427,7 +427,7 @@ def _run_automation(it):
          "notify": "결과를 짧게 알려주기만 하고 파일은 만들지 마.",
          "both": "결과를 짧게 알려주고 notes/inbox/ 에도 기록으로 남겨줘."}.get(it.get("deliver"), "결과를 짧게 알려줘."))
     try:
-        p = subprocess.run(["claude", "--bg", prompt], cwd=ROOT,
+        p = subprocess.run(["claude", "--bg", prompt], cwd=ROOT, start_new_session=True,
                            capture_output=True, text=True, timeout=60)
         m = re.search(r"backgrounded\s*[·|]?\s*(?:\x1b\[[0-9;]*m)?([0-9a-f]{6,})", p.stdout or "")
         job = m.group(1) if m else None
@@ -480,7 +480,7 @@ def _bg_working():
 def _launch_bg(prompt):
     """`claude --bg` 로 보내고 (작업 id, 원문) 을 돌려준다. id 를 못 읽으면 (None, 원문)."""
     try:
-        p = subprocess.run(["claude", "--bg", prompt], cwd=ROOT,
+        p = subprocess.run(["claude", "--bg", prompt], cwd=ROOT, start_new_session=True,
                            capture_output=True, text=True, timeout=60)
     except Exception as e:
         return None, str(e)[:300]
@@ -1678,7 +1678,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         if not re.fullmatch(r"[0-9a-fA-F-]{4,40}", jid):
             return self._json(400, {"error": "작업 id 가 올바르지 않습니다"})
         try:
-            subprocess.run(["claude", "stop", jid], cwd=ROOT,
+            subprocess.run(["claude", "stop", jid], cwd=ROOT, start_new_session=True,
                            capture_output=True, text=True, timeout=30)
         except Exception as e:
             return self._json(500, {"error": "그만두지 못했어요: %s" % e})
@@ -1765,6 +1765,12 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 argv,
                 cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                 text=True, encoding="utf-8", errors="replace", bufsize=1,
+                # ★ 파트너(claude)를 **자기 세션·프로세스 그룹**으로 떼어낸다.
+                #   안 떼면 claude 가 이 서버의 프로세스 그룹을 물려받는다. 그러면
+                #   누군가 그 그룹을 향해 신호를 보낼 때 **대시보드 서버까지 같이 죽는다**
+                #   (실측: 실증 스위트에서 브리지가 SIGTERM/SIGKILL 로 사라짐).
+                #   참가자 입장에서도 같은 문제다 — 작업 하나 멈추자고 대시보드가 꺼지면 안 된다.
+                start_new_session=True,
             )
             timer = threading.Timer(TIMEOUT_SEC, proc.kill)
             timer.start()

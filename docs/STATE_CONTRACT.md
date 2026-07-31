@@ -450,19 +450,24 @@ window.DASHBOARD_DATA = {
 
 ### records (파생 · refresh-dashboard.sh 주입)
 
-`notes/` 5분류 폴더와 `notes/projects/` 를 스캔해 만든 **읽기 전용 파생 블록**. 원본 JSON에는 쓰지
-않는다. python3 가 없으면 생략된다(대시보드는 `records || {}` 로 방어 — 없어도 동작).
+`notes/` **아래 실재하는 폴더 전부**와 `notes/projects/` 를 스캔해 만든 **읽기 전용 파생 블록**.
+원본 JSON에는 쓰지 않는다.
+
+> **폴더는 고정 목록이 아니다 (W28).** 기본은 `inbox`·`issues` 둘뿐이고 나머지는 각자 만든다
+> (`고객사/`·`영상/`·`자격증/`). 서버(`note_folders()`)와 래퍼가 **같은 규칙**으로 실재 폴더를 읽고,
+> 화면은 서버가 준 키를 그대로 순회한다(`Object.entries` · `FOLDER_LABEL[f] ?? f`).
+> **따라서 아래 `counts` 의 키는 사람마다 다르다.** python3 가 없으면 생략된다(대시보드는 `records || {}` 로 방어 — 없어도 동작).
 
 | 키 | 타입 | 설명 |
 |---|---|---|
-| `counts` | object | 5분류별 파일 수 `{ "inbox", "meetings", "customers", "ideas", "issues" }` |
+| `counts` | object | **폴더별 파일 수. 키는 고정이 아니다** — 그 사람의 `notes/` 에 있는 폴더 이름이 그대로 키가 된다. 예: `{ "inbox": 2, "issues": 1, "고객사": 4 }` |
 | `recent` | array | 최근 파일 최대 5개. 항목: `{ "path", "title", "date", "folder", "name", "kind" }` — `kind`: `"md"` \| `"table"`(csv·xlsx) |
 | `projects` | array | `notes/projects/` 하위 산출물. 항목: `{ "path", "title", "date", "name", "kind" }` |
 | `tree` | object | **(신설·additive)** 기록 탭 폴더 브라우저용 전 파일 목록: `{ "notes": {분류: [{path,title,date,kind}]}, "projects": {슬러그: [...]} }` |
 
 ```js
 "records": {
-  "counts": { "inbox": 2, "meetings": 3, "customers": 4, "ideas": 2, "issues": 1 },
+  "counts": { "inbox": 2, "issues": 1, "고객사": 4, "미팅": 3 },   // 키는 사람마다 다르다
   "recent": [
     { "path": "notes/issues/2026-07-19-반품.md", "title": "반품",
       "date": "2026-07-19", "folder": "issues", "name": "2026-07-19-반품.md" }
