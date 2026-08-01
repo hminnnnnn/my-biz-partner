@@ -12,6 +12,7 @@
       "Bash(./dashboard.sh:*)",
       "Bash(bash dashboard.sh)",
       "Bash(mkdir:*)",
+      "Bash(cp:*)",
       "Bash(ls:*)",
       "Bash(cat:*)",
       "Bash(date:*)",

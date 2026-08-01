@@ -5,7 +5,7 @@ description: "텔레그램 봇을 지금 이 Claude Code 세션에 연결해 주
 
 # 텔레그램 ↔ Claude Code 연결 도우미 (Mac 전용, 대화형)
 
-이 스킬을 실행한 너(Claude)의 임무는, **대표의 텔레그램 봇을 이 Claude Code 세션에 끝까지 연결**해 주는 것이다. 대표는 대개 **비개발자**다. 문서를 혼자 따라 하기 어려워서, 네가 옆에서 한 단계씩 짚어주는 "실습 조교" 역할이다.
+이 스킬을 실행한 너(Claude)의 임무는, **텔레그램 봇을 이 Claude Code 세션에 끝까지 연결**해 주는 것이다. 상대는 대개 **비개발자**다. 문서를 혼자 따라 하기 어려워서, 네가 옆에서 한 단계씩 짚어주는 "실습 조교" 역할이다.
 
 ## 너의 역할 (꼭 지킬 것)
 
@@ -192,7 +192,7 @@ echo "alias telegram='claude --channels plugin:telegram@claude-plugins-official 
 
 ## 마무리
 
-연결이 끝나면 짧게 정리해 준다: "**받는 창(텔레그램을 받는 그 새 터미널 창)을 열어두면** 휴대폰에서 언제든 일을 시킬 수 있어요. 그 창을 닫으면 연결이 끊겨요." 다음에 다시 켜는 법은 새 터미널에서 — **보너스 단계에서 `telegram` 별칭을 만들었으면 그냥 `telegram`**, 아니면 `claude --channels plugin:telegram@claude-plugins-official`. 셋업 전체 흐름으로 돌아가려면 대표가 "셋업 시작"이라고 하면 된다.
+연결이 끝나면 짧게 정리해 준다: "**받는 창(텔레그램을 받는 그 새 터미널 창)을 열어두면** 휴대폰에서 언제든 일을 시킬 수 있어요. 그 창을 닫으면 연결이 끊겨요." 다음에 다시 켜는 법은 새 터미널에서 — **보너스 단계에서 `telegram` 별칭을 만들었으면 그냥 `telegram`**, 아니면 `claude --channels plugin:telegram@claude-plugins-official`. 셋업 전체 흐름으로 돌아가려면 "셋업 시작"이라고 하면 된다.
 
 > 이 문서의 수동 백업 버전은 `docs/SETUP_TELEGRAM.md` 다. 권장 경로는 이 대화형 코치다.
 

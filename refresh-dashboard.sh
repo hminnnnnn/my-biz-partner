@@ -7,7 +7,7 @@
 # 하는 일:
 #   1) status.json + team.json 을 내용 그대로 window.DASHBOARD_DATA 로 래핑 (원본 불변)
 #   2) [python3 있을 때] status.todos[] 의 open 항목 중 due<오늘 을 overdue 로 파생 판정
-#   3) [python3 있을 때] notes/ 5분류 + notes/projects 스캔 → records 블록 주입
+#   3) [python3 있을 때] notes/ 실재 폴더 전부 + notes/projects 스캔 → records 블록 주입
 #   python3 가 없으면 1)만 수행(기본 래핑) — 대시보드가 자체 계산으로 보완하므로 동작에 지장 없음.
 set -e
 ROOT="$(cd "$(dirname "$0")" && pwd)"
@@ -52,7 +52,15 @@ if isinstance(todos, list):
                 t["state"] = "overdue"
 
 # --- (3) notes/ 스캔 → records ---
-FOLDERS = ["inbox", "meetings", "customers", "ideas", "issues"]
+# 폴더는 **고정 목록이 아니다** — notes/ 아래 실재하는 폴더를 그대로 읽는다.
+# (dashboard-server.py 의 note_folders() 와 같은 규칙. 같은 화면을 두 곳에서 다르게 그리면 안 된다.)
+DEFAULT_FOLDERS = ["inbox", "issues"]
+try:
+    FOLDERS = sorted(n for n in os.listdir("notes")
+                     if not n.startswith(".") and n != "projects"
+                     and os.path.isdir(os.path.join("notes", n))) or DEFAULT_FOLDERS
+except OSError:
+    FOLDERS = DEFAULT_FOLDERS
 
 def file_date(name, path):
     m = re.match(r"(\d{4}-\d{2}-\d{2})", name)
@@ -210,7 +218,7 @@ for r in projects:
         r["content"] = c
         contents[r["path"]] = {"title": r["title"], "content": c}
 
-# 폴더 트리 (additive) — 기록 탭 폴더 브라우저용: notes 5분류 + projects/<슬러그>별 전 파일
+# 폴더 트리 (additive) — 기록 탭 폴더 브라우저용: notes 실재 폴더 + projects/<슬러그>별 전 파일
 tree = {"notes": tree_notes, "projects": tree_projects}
 
 records = {"counts": counts, "recent": recent, "projects": projects, "contents": contents, "tree": tree}

@@ -48,7 +48,11 @@ ensure_file() {
 # --- 2. notes/ 하위 구조 ---
 echo ""
 echo "[1/3] 기록 폴더(notes/) 준비"
-for d in inbox meetings customers ideas issues; do
+# 기본은 둘뿐이다. 나머지는 셋업에서 각자 맥락에 맞게 만든다 —
+# 사업하는 사람과 자격증 준비하는 사람에게 같은 폴더 이름을 강요하지 않는다.
+#   inbox  : 분류 애매한 것 전부. 여기부터 시작한다.
+#   issues : 아직 안 끝난 문제. 브리핑이 이 폴더를 봐서 놓친 걸 꺼낸다(유일한 기능적 폴더).
+for d in inbox issues; do
   ensure_dir "notes/$d"
   [ -f "notes/$d/.gitkeep" ] || : > "notes/$d/.gitkeep"
 done
@@ -118,17 +122,17 @@ echo "==================================================================="
 echo " 설치가 끝났습니다. 이제 순서대로 아래를 진행하세요:"
 echo ""
 echo "  1) 텔레그램 연결   →  docs/SETUP_TELEGRAM.md 를 따라 하세요"
-echo "  2) 나를 소개하기   →  identity/IDENTITY.md 의 4칸을 채우세요"
+echo "  2) 나를 소개하기   →  identity/IDENTITY.md 를 채우세요 (필수는 세 칸)"
 echo "                         (막막하면 텔레그램에 '정체성 같이 채워줘' 라고 하세요)"
-echo "  3) 캘린더 연결(선택) →  docs/SETUP_CALENDAR.md"
-echo "  4) 대시보드 열기   →  dashboard/index.html 을 더블클릭"
-echo "                         (또는 ./dashboard.sh — 로컬 서버로 띄우면 상태가 늘 최신이고,"
-echo "                          화면에서 파트너에게 바로 일을 시킬 수 있습니다)"
+echo "  3) 예전 기록 들여오기 →  _import/ 에 파일을 넣고 '_import 정리해줘' 라고 하세요"
+echo "                         (넣을 게 없으면 건너뛰어도 됩니다)"
+echo "  4) 캘린더 연결(선택) →  docs/SETUP_CALENDAR.md"
+echo "  5) 화면 열기       →  터미널에서  ./dashboard.sh  (브라우저가 저절로 열립니다)"
 echo ""
 echo "  ※ 이 폴더에서 claude 를 한 번 실행하고 신뢰 대화상자를 수락해 주세요 —"
 echo "     그래야 파트너가 파일을 정리할 권한을 갖습니다."
 echo ""
 echo "  준비되면 텔레그램에 이렇게 말 걸어 보세요:"
-echo "    \"안녕, 내 사업 알고 있어?\"   \"내일 일정 브리핑해줘\""
+echo "    \"안녕, 내가 무슨 일 하는지 알아?\"   \"내일 일정 브리핑해줘\""
 echo "==================================================================="
 echo ""

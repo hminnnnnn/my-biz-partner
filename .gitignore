@@ -8,6 +8,11 @@ out.log
 # 들여온 원본 — 카톡·노션에서 가져온 개인 기록이다. 절대 커밋하지 않는다
 _import/
 
+# 런타임 기록 — 대시보드가 쓰는 사용자별 데이터. 제품이 아니다
+# (install.sh 가 만드는 건 status.json·team.json 둘뿐이다)
+state/activity.json
+state/automations.json
+
 # 구글 캘린더 연결 — 개인 열쇠·브라우저 프로필·설치물은 절대 커밋하지 않는다
 state/google-calendar.json
 tools/google-connect/node_modules/

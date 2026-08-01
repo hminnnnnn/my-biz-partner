@@ -18,7 +18,9 @@ cd "$ROOT"
 
 if ! command -v python3 > /dev/null 2>&1; then
   echo "✗ python3 가 없어서 서버를 띄울 수 없어요."
-  echo "  대신 dashboard/index.html 을 더블클릭하면 그대로 쓸 수 있어요 (파일 모드)."
+  echo "  python3 는 macOS 개발자 도구(Command Line Tools)에 들어 있어요."
+  echo "  터미널에  xcode-select --install  을 실행해 설치한 뒤 다시 시도해 주세요."
+  echo "  (설치 없이 화면만 여는 방법은 없습니다 — 화면이 기록을 읽으려면 서버가 필요해요.)"
   exit 1
 fi
 

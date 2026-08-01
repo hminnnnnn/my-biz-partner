@@ -239,7 +239,7 @@ description: "무거운 프로젝트성 업무를 팀으로 진행. 대표가 '�
   "tickets": [
     { "id": "2026-07-가을밤잼-런칭-t2", "title": "밤 원물 벤더·원가 조사", "assignee": "Quinn",
       "role": "리서처", "goal": "초도 물량 원가를 확정해 손익 추정의 근거를 만든다",
-      "context": "지난 원가 기록(notes/customers/…)과 계획서 01 을 입력으로 시작",
+      "context": "지난 원가 기록(notes/ 상대별 폴더)과 계획서 01 을 입력으로 시작",
       "sources": ["notes/projects/2026-07-가을밤잼-런칭/00-계획.md"],
       "outputs": ["notes/projects/2026-07-가을밤잼-런칭/01-리서치.md"],
       "status": "done", "project": "가을 밤잼 신제품 런칭",
