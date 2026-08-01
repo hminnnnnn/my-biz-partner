@@ -59,7 +59,7 @@ state/
 - **왜 JS 래퍼인가 (역사·롤백):** 래퍼는 `file://` 로 열리는 구 대시보드를 위해 만들어졌다 —
   브라우저는 `file://` 에서 `fetch()` 로 JSON을 못 읽어(CORS) `<script src>` 형태가 유일한
   통로였다. ADR-0008 이후 **새 대시보드는 래퍼를 읽지 않지만**, 롤백용 구 대시보드
-  (`dashboard-legacy/`)와 초기 상태 생성을 위해 래퍼와 이 파생 절차는 그대로 유지한다.
+  초기 상태 생성을 위해 래퍼와 이 파생 절차는 그대로 유지한다.
 
 ## ③ 쓰기 — 누가, 언제
 
@@ -93,7 +93,7 @@ install.sh 도 마지막 단계에서 같은 스크립트를 호출한다.
 | 모드 | 어떻게 여나 | 무엇을 읽나 |
 |---|---|---|
 | **서버 모드 (유일)** | `./dashboard.sh` (`http://127.0.0.1`) | 브리지 API 로 **파일을 직접**: `/api/state`(status·team) · `/api/records`(notes/ 서버 스캔) · `/api/note`(본문 지연 로드, csv/xlsx 표 포함) · `/api/search`(본문 전문 검색) · `/api/calendar`(W26 — calendar.json 의 ICS + 폴백 파일) · `/api/chat/history`(W26 — 대화 도크 이력, 세션 전사에서) · `/api/calendar/events`(W27 — 구글 캘린더 GET/POST/PATCH/DELETE) · `/api/calendar/undo`(W27 — 지운 일정 복원) |
-| (롤백용) 구 대시보드 | `dashboard-legacy/index.html` 더블클릭 | `state/dashboard-data.js` 래퍼만 (종전 파일 모드 그대로 보존) |
+
 
 - **새 대시보드는 `dashboard-data.js` 를 읽지 않는다.** 서버가 notes/ 를 직접 스캔하므로
   `refresh-dashboard.sh` 를 돌리지 않아도 새 기록이 화면에 바로 뜬다.
