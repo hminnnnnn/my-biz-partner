@@ -71,7 +71,7 @@ state/
 | `team.json.activeProject.{health,progress,outputs}` | **project-team 스킬** | health: 팀 구성 시 `"순항"`, 단계 전환·리스크 시 재평가 / progress: 단계 전환마다(단계 파생) / outputs: 산출물 저장 시마다 추가 |
 | `team.json.staff[]` | **project-team 스킬** | 채용 시 생성(`staff-guide.md` 규약 — W26: 필요 역량만 성장형 채용), 대표의 변경 지시·회고 경험 누적 시 수정. 프로젝트 종료와 무관하게 유지(재직) |
 | `team.json.tickets[]` | **project-team 스킬** (W26 신설) | 편성 시 멤버별 발행, 착수/막힘/완료 시 status·outputs 갱신. 새 프로젝트 시작 시 직전 프로젝트의 done 티켓 정리 |
-| `state/calendar.json` | **에이전트(setup-calendar 스킬)** (W26 신설) | 대표가 구글 캘린더 비밀 주소(ICS)를 연결할 때. **대시보드는 읽기만 한다** |
+| `state/calendar.json` | **에이전트(setup-calendar 스킬)** (W26 신설) | 구글 캘린더 비밀 주소(ICS)를 연결할 때. **대시보드는 읽기만 한다** |
 | `dashboard-data.js` (`status`·`team` 래핑) | 위 JSON을 바꾼 쪽 | **JSON을 갱신할 때마다 반드시 함께 재생성** |
 | `automations.json` | **대시보드(브리지)** — 예외 | 사용자가 자동화를 켜거나 시각·문구를 바꿀 때 (`POST /api/automations`) |
 | `activity.json` | **브리지** — 예외 | 자동화가 돌 때, 그리고 화면에서 일을 시킬 때(요청형도 남긴다 — "파트너가 어떻게 움직이는지"는 자율형만의 이야기가 아니다) |
@@ -223,7 +223,7 @@ install.sh 도 마지막 단계에서 같은 스크립트를 호출한다.
 - `icsUrl` 이 없거나 파일이 없으면 `/api/calendar` 는 `notes/calendar-fallback.md` 원문을
   준다(구조를 추측해 파싱하지 않는다 — 지어낸 일정이 빈 화면보다 나쁘다).
 - **소스 차이 정직 고지**: 텔레그램 브리핑(daily-briefing)은 여전히 폴백 파일 기준이다.
-  대시보드 일정 화면과 소스가 다르다는 사실을 setup-calendar 코치가 대표에게 말한다.
+  대시보드 일정 화면과 소스가 다르다는 사실을 setup-calendar 코치가 사용자에게 말한다.
 
 ## ⑦-1 구글 캘린더 실연동 (W27) — **쓰기 경계의 유일한 예외**
 
