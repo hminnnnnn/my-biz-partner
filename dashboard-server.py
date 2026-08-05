@@ -391,7 +391,11 @@ def _scheduler_loop():
                     changed = True
                 if it.get("runsToday", 0) >= int(it.get("dailyLimit", 3)):
                     continue
-                due = _next_due(it.get("trigger") or {}, now - datetime.timedelta(days=8))
+                # 기준점은 **지금**이다. 여기에 과거 시점을 넣으면 `prev` 가 그만큼 과거로
+                # 밀려 아래 600초 창에 **영원히 안 들어온다** — 실측: `now - 8일` 이 들어가
+                # 있어서 자동화가 하루 1440분 중 0분도 발화하지 못했다(W22 이후 네 패킷 연속
+                # "미검증" 으로 이월된 원인). 창 안에 드는지는 `automation-fire.mjs` 가 지킨다.
+                due = _next_due(it.get("trigger") or {}, now)
                 # due 는 now 이후의 첫 예정. 직전 예정은 한 주기 앞.
                 step = datetime.timedelta(days=7) if (it.get("trigger") or {}).get("kind") == "weekly" else datetime.timedelta(days=1)
                 prev = due - step
