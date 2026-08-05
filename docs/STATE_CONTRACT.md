@@ -357,7 +357,7 @@ POST   /api/calendar/undo               지운 일정을 그대로 다시 만들
 | `history` | array | 완료된 프로젝트 요약 목록. 항목: `{ "goal": string, "startedAt": string(ISO 8601), "completedAt": string(ISO 8601), "summary": string }` |
 | `pipeline` | array | **(선택·additive)** 대기 중 프로젝트 목록(activeProject와 동일 골격). 현재 미사용 — 다중 프로젝트 대비 예약. 없어도 됨 |
 | `staff` | array | **(신설·additive)** 상비 팀원 캐릭터 ("재직" — 프로젝트 종료와 무관하게 유지. W26: 필요 역량만 성장형 채용 — 인원 수 가변). 없어도 됨(하위호환). 항목: 아래 |
-| `tickets` | array | **(W26 신설·additive)** 팀원 작업 티켓 — 칸반보드의 단위. 없으면 대시보드가 `members[]` 에서 파생 렌더(하위호환). 항목: 아래 |
+| `tickets` | array | **(W26 신설·additive)** 팀원 작업 티켓 — 칸반보드의 단위. **쓰는 쪽(project-team)은 편성 시 반드시 발행한다** — 소집 멤버 수만큼. `members[]` 파생 렌더는 **옛 파일을 읽을 때의 폴백**이지 생략 허가가 아니다(실주행 2회에서 이 줄을 생략 허가로 읽었다). 항목: 아래 |
 | `updatedAt` | string | 마지막 갱신 시각 (ISO 8601) |
 
 `members[].status` 권장값: `"waiting"` \| `"working"` \| `"done"` \| `"blocked"`.
