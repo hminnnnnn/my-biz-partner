@@ -15,7 +15,9 @@
 //   · 시각은 **로컬로 변환한 뒤** 쪼갠다 (문자열을 그냥 자르면 UTC 를 한국 시각처럼 보여준다)
 //   이 둘이 갈라지면 화면과 브리핑이 다른 말을 하게 된다 — 고칠 때 함께 고칠 것.
 //
-// 쓰기는 하지 않는다. 만들기·고치기·지우기는 화면(브리지)만 한다.
+// **이 파일은 읽기 전용이다.** 만들기·고치기·지우기는 `tools/calendar-write.mjs` 가 한다
+// (2026-08-07 신설 — 그전까지는 화면(브리지)만 쓸 수 있었다). 고칠 일정의 `id` 는
+// `--json` 출력의 `id`·`calendarId` 를 그대로 넘긴다.
 //
 //   bun tools/calendar-read.mjs              오늘부터 28일
 //   bun tools/calendar-read.mjs --days 2     오늘·내일
@@ -131,6 +133,11 @@ for (const c of await calendars(tok)) {
         allDay,
         calendar: c.summary || "",
         location: g.location || "",
+        // ↓ 고치기·지우기의 **유일한 손잡이**. `tools/calendar-write.mjs --id` 가 이걸 쓴다.
+        //   (2026-08-07: 쓰기 도구를 붙이면서 추가. 사람이 읽는 출력은 그대로 두고 --json 에만 실린다)
+        id: g.id || "",
+        calendarId: c.id || "primary",
+        writable: ["owner", "writer"].includes(c.accessRole), // 읽기 전용이면 고치자고 제안하지 않는다
       });
     }
   } catch {

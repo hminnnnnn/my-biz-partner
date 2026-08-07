@@ -20,21 +20,10 @@
       "Bash(open ./_import)",
       "Bash(open _import)",
       "Bash(mkdir -p _import && open ./_import)",
-      "Bash(bun tools/calendar-read.mjs)",
-      "Bash(bun tools/calendar-read.mjs:*)",
-      "Bash(bun tools/calendar-write.mjs)",
-      "Bash(bun tools/calendar-write.mjs:*)",
       "Bash(bun tools/google-connect/connect.mjs:*)",
-      "Bash(node tools/google-connect/connect.mjs)",
-      "Bash(node tools/google-connect/connect.mjs:*)",
-      "Bash(node -v)",
-      "Bash(node -v:*)",
       "Bash(bun install:*)",
       "Bash(bun --version)",
-      "Bash(cd tools/google-connect && bun install)",
-      "Bash(shasum:*)",
-      "Bash(find:*)",
-      "Bash(diff:*)"
+      "Bash(cd tools/google-connect && bun install)"
     ],
     "deny": [
       "Edit(../**)",

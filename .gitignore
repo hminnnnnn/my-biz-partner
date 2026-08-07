@@ -13,6 +13,12 @@ _import/
 state/activity.json
 state/automations.json
 
+# 사용자가 "항상 허용"을 눌러 쌓인 개인 권한 목록 — 제품이 아니므로 미러로 내보내지 않는다
+.claude/settings.local.json
+
+# update 스킬이 마무리를 끝내고 남기는 기록(적용된 매니페스트 사본) — 각 컴퓨터의 런타임 산출물이다
+.product/installed.json
+
 # 구글 캘린더 연결 — 개인 열쇠·브라우저 프로필·설치물은 절대 커밋하지 않는다
 state/google-calendar.json
 tools/google-connect/node_modules/

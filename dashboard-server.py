@@ -79,8 +79,16 @@ def workspace_trusted():
 
 
 def _transcript_dir():
-    """세션 전사가 쌓이는 곳. Claude Code 는 cwd 를 '-' 로 치환한 폴더명을 쓴다."""
-    enc = os.path.realpath(ROOT).replace("/", "-")
+    """세션 전사가 쌓이는 곳.
+
+    Claude Code 는 cwd 의 **영숫자·하이픈이 아닌 모든 문자**를 '-' 로 치환한다.
+    슬래시만 바꾸면 밑줄이 든 경로(`claude_projects/business_partner`)에서 존재하지 않는
+    폴더를 가리켜 전사를 영영 못 읽는다 — `/api/chat/history` 가 늘 빈 배열이었고
+    팀 탭의 '지금 뭘 하는 중'도 안 떴다 (실측 8/7: 후보 4경로 전부 빗나감,
+    `~/.claude/projects/` 278개 폴더 중 밑줄이 든 것은 0개).
+    한글·공백이 든 폴더 이름(참가자 환경)에서도 같은 규칙이 적용된다.
+    """
+    enc = re.sub(r"[^a-zA-Z0-9]", "-", os.path.realpath(ROOT))
     return os.path.expanduser("~/.claude/projects/" + enc)
 
 
