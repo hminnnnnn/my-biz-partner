@@ -20,6 +20,8 @@
       "Bash(open ./_import)",
       "Bash(open _import)",
       "Bash(mkdir -p _import && open ./_import)",
+      "Bash(bun tools/calendar-read.mjs)",
+      "Bash(bun tools/calendar-read.mjs:*)",
       "Bash(bun tools/google-connect/connect.mjs:*)",
       "Bash(bun install:*)",
       "Bash(bun --version)",
